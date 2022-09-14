@@ -1,9 +1,19 @@
 import { WebPubSubClientCredentialOptions } from "./webPubSubClientCredentialOptions";
 import { AbortSignalLike } from "@azure/abort-controller";
 
+export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>
 
-export class WebPubSubClientCredential {
-    private readonly credentialOptions: WebPubSubClientCredentialOptions;
+export interface WebPubSubClientCredential {
+
+    /**
+     * Gets an `AccessToken` for the user. Throws if already disposed.
+     * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
+     */
+    getToken(abortSignal?: AbortSignalLike): Promise<string>;
+}
+
+export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
+  private readonly _tokenProvider: TokenProvider;
   
     /**
      * Creates an instance of CommunicationTokenCredential with a static token and no proactive refreshing.
@@ -15,13 +25,12 @@ export class WebPubSubClientCredential {
      * to configure proactive refreshing.
      * @param refreshOptions - Options to configure refresh and opt-in to proactive refreshing.
      */
-    constructor(credentialOptions: WebPubSubClientCredentialOptions);
-    constructor(credentialOptions: string | WebPubSubClientCredentialOptions) {
-      if (typeof credentialOptions === "string") {
-        this
-        this.credentialOptions = new WebPubSubClientCredentialOptions(async (_) => credentialOptions);
+    constructor(tokenProvider: TokenProvider);
+    constructor(tokenProvider: string | TokenProvider) {
+      if (typeof tokenProvider === "string") {
+        this._tokenProvider = async _ => tokenProvider;
       } else {
-        this.credentialOptions = credentialOptions;
+        this._tokenProvider = tokenProvider;
       }
     }
   
@@ -30,7 +39,7 @@ export class WebPubSubClientCredential {
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
     public async getToken(abortSignal?: AbortSignalLike): Promise<string> {
-      const token = await this.credentialOptions.clientAccessUriProvider(abortSignal);
+      const token = await this._tokenProvider(abortSignal);
       return token;
     }
 }

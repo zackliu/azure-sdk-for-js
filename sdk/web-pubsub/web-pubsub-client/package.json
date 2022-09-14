@@ -57,7 +57,9 @@
   "dependencies": {
     "tslib": "^2.2.0",
     "@azure/logger": "^1.0.0",
-    "@azure/abort-controller": "1.1.1"
+    "@azure/abort-controller": "1.1.1",
+    "@azure/core-rest-pipeline": "~1.9.1",
+    "@types/ws": "~8.5.3"
   },
   "devDependencies": {
     "@azure/dev-tool": "^1.0.0",

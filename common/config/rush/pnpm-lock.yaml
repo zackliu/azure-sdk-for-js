@@ -2621,6 +2621,12 @@ packages:
     resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
     dev: false
 
+  /@types/websocket/1.0.5:
+    resolution: {integrity: sha512-NbsqiNX9CnEfC1Z0Vf4mE1SgAJ07JnRYcNex7AJ9zAVzmiGHmjKFEk7O4TJIsgv2B1sLEb6owKFZrACwdYngsQ==}
+    dependencies:
+      '@types/node': 18.6.1
+    dev: false
+
   /@types/ws/7.4.7:
     resolution: {integrity: sha512-JQbbmxZTZehdc2iszGKs5oC3NFnjeay7mtAWrdt7qNtAVK0g19muApzAy4bm9byz79xa2ZnO/BOBC2R8RC5Lww==}
     dependencies:
@@ -3894,7 +3900,7 @@ packages:
     dependencies:
       semver: 7.3.7
       shelljs: 0.8.5
-      typescript: 4.9.0-dev.20220905
+      typescript: 4.9.0-dev.20220913
     dev: false
 
   /downlevel-dts/0.4.0:
@@ -8642,8 +8648,8 @@ packages:
     hasBin: true
     dev: false
 
-  /typescript/4.9.0-dev.20220905:
-    resolution: {integrity: sha512-Y3m8ommI+wTpwdh1vNdp5a2AvvD7UYkUfuUJkB+DrM/7z4XMTCEVcZXjiH5OwICNHy9k9N6ZeaTTokpcNj4kVg==}
+  /typescript/4.9.0-dev.20220913:
+    resolution: {integrity: sha512-v/DpPFVU1aThfbgdqGaTFD97b+aDqHqkAnQGb6VVsuxiO4/84aIzXp/Xsc7P6sz7+7RiWJqogy2O3Qg3DtD/Fg==}
     engines: {node: '>=4.2.0'}
     hasBin: true
     dev: false
@@ -18488,7 +18494,7 @@ packages:
     dev: false
 
   file:projects/web-pubsub-client.tgz:
-    resolution: {integrity: sha512-bSQAVplLpWuIKgSJnqufIdKwTuy+84KBVaMtDCivY2I9gWmot5RceXAUQxrwgtrzhx0SzqdLl+xIYFvXFjVJ3A==, tarball: file:projects/web-pubsub-client.tgz}
+    resolution: {integrity: sha512-G5WcoSbhqyw1ofEzbAw9CzCvOcVmu7/yrSLj054/uBEbPeM0WzZHxGAW0S4pQ6MWQVJaohYpfWzKe+BPgm8Kkg==, tarball: file:projects/web-pubsub-client.tgz}
     name: '@rush-temp/web-pubsub-client'
     version: 0.0.0
     dependencies:
@@ -18501,6 +18507,8 @@ packages:
       '@types/mocha': 7.0.2
       '@types/node': 12.20.55
       '@types/sinon': 9.0.11
+      '@types/websocket': 1.0.5
+      '@types/ws': 8.5.3
       chai: 4.3.6
       cross-env: 7.0.3
       dotenv: 8.6.0
