@@ -9,7 +9,7 @@ export interface WebPubSubClientCredential {
      * Gets an `AccessToken` for the user. Throws if already disposed.
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
-    getToken(abortSignal?: AbortSignalLike): Promise<string>;
+    getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
 export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
@@ -38,7 +38,7 @@ export class DefaultWebPubSubClientCredential implements WebPubSubClientCredenti
      * Gets an `AccessToken` for the user. Throws if already disposed.
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
-    public async getToken(abortSignal?: AbortSignalLike): Promise<string> {
+    public async getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string> {
       const token = await this._tokenProvider(abortSignal);
       return token;
     }
