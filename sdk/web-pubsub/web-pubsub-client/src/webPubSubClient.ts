@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-import { AbortSignalLike } from "@azure/abort-controller";
+import { AbortController, AbortSignal, AbortSignalLike } from "@azure/abort-controller";
 import { resolve } from "dns";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { ReconnectionOptions, WebPubSubClientOptions } from "./models";
@@ -68,7 +68,7 @@ export class WebPubSubClient {
     console.info("Staring a new connection");
 
     var uri = await this._credential.getClientAccessUri(abortSignal);
-    await this.connectCore(uri, abortSignal);
+    await this.connectCore(uri);
   }
 
   public async stop(abortSignal?: AbortSignalLike) : Promise<void> {
@@ -179,9 +179,13 @@ export class WebPubSubClient {
       return;
     }
 
-    
+    var abortSignal = AbortController.timeout(30 * 1000);
+    var timeout = delay(30 * 1000).then(() => abortSignal.onabort) // 30s
+    while (timeout) {
 
+    }
 
+    Promise.race()
   }
 
   buildDefaultOptions(): WebPubSubClientOptions {
