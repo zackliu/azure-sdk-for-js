@@ -5,11 +5,10 @@ import { AbortController, AbortSignal, AbortSignalLike } from "@azure/abort-cont
 import { resolve } from "dns";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { ReconnectionOptions, WebPubSubClientOptions } from "./models";
-import { ConnectedMessage, DataMessage, DisconnectedMessage, DownstreamMessageType, WebPubSubDataType } from "./models/messages";
+import { ConnectedMessage, DataMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType } from "./models/messages";
 import { WebPubSubClientProtocol } from "./protocols";
 import { WebPubSubJsonProtocol } from "./protocols/webPubSubJsonProtocol";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
-import { WebPubSubGroup } from "./webPubSubGroup";
 
 export type OnMessage = (data: DataMessage) => Promise<void>;
 
@@ -17,16 +16,21 @@ export type OnConnected = (data: ConnectedMessage) => Promise<void>;
 
 export type OnDisconnected = (data: DisconnectedMessage) => Promise<void>;
 
+export type OnGroupMessageReceived = (data: GroupDataMessage) => Promise<void>;
+
 export class WebPubSubClient {
   private readonly _protocol: WebPubSubClientProtocol;
   private readonly _credential: WebPubSubClientCredential;
   private readonly _options: WebPubSubClientOptions;
+  private readonly _groupMap: Map<string, WebPubSubGroup>;
 
   private _socket: WebSocket;
   private _uri: string;
   private _lastCloseEvent: CloseEvent;
+  private _lastDisconnectedMessage?: DisconnectedMessage
   private _connectionId?: string;
   private _reconnectionToken?: string;
+  private _isInitialConnected = false;
 
   private _isStopped = false;
   private _state: WebPubSubClientState;
@@ -51,6 +55,7 @@ export class WebPubSubClient {
     }
 
     this._protocol = this._options.protocol;
+    this._groupMap = new Map<string, WebPubSubGroup>();
   }
 
   public async connect(abortSignal?: AbortSignalLike) : Promise<void> {
@@ -67,7 +72,7 @@ export class WebPubSubClient {
 
     console.info("Staring a new connection");
 
-    var uri = await this._credential.getClientAccessUri(abortSignal);
+    let uri = await this._credential.getClientAccessUri(abortSignal);
     await this.connectCore(uri);
   }
 
@@ -83,7 +88,27 @@ export class WebPubSubClient {
 
   }
 
-  public group(groupName: string): WebPubSubGroup{
+  public async joinGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<void> {
+    let group = this.getOrAddGroup(groupName);
+    group.isJoined = true;
+
+    const joinGroup: JoinGroupMessage = {
+      group: groupName,
+      ackId: ackId,
+      type: UpstreamMessageType.JoinGroup
+    }
+
+    return await this.sendMessage(joinGroup);
+  }
+
+  public async leaveGroup(ackId?: bigint, abortSignal?: AbortSignalLike): Promise<void> {
+
+  }
+
+  public async sendToGroup(content: string | ArrayBuffer,
+    dataType: WebPubSubDataType,
+    ackId?: bigint,
+    abortSignal?: AbortSignalLike): Promise<void> {
 
   }
 
@@ -124,20 +149,21 @@ export class WebPubSubClient {
   }
 
   private onmessage(event: MessageEvent) {
-    var data = event.data;
-    var convertedData : Buffer | ArrayBuffer | string;
+    let data = event.data;
+    let convertedData : Buffer | ArrayBuffer | string;
     if (Array.isArray(data)) {
       convertedData = Buffer.concat(data);
     } else {
       convertedData = data;
     }
 
-    var message = this._protocol.parseMessages(convertedData);
+    let message = this._protocol.parseMessages(convertedData);
     switch (message.type) {
       case DownstreamMessageType.Ack: {
         break;
       }
       case DownstreamMessageType.Connected: {
+        this.handleConnected(message as ConnectedMessage)
         break;
       }
       case DownstreamMessageType.Disconnected: {
@@ -152,11 +178,49 @@ export class WebPubSubClient {
     }
   }
 
-  raiseClose(event: CloseEvent) {
+  private handleConnected(message: ConnectedMessage): void {
+    this._connectionId = message.connectionId;
+    this._reconnectionToken = message.reconnectionToken;
+
+    if (!this._isInitialConnected) {
+      this._isInitialConnected = true;
+      if (this._onConnected != null) {
+        this._onConnected(message);
+      }
+    }
+  }
+
+  private handleDisconnected(message: DisconnectedMessage): void {
+    this._lastDisconnectedMessage = message;
+  }
+
+  private handleGroupData(message: GroupDataMessage): void {
+    
+  }
+
+  private handleServerData(message: ServerDataMessage): void {
 
   }
 
-  async tryRecovery(): Promise<void> {
+  private raiseClose(event: CloseEvent) {
+
+  }
+
+  private sendMessage(message: WebPubSubMessage): Promise<any> {
+    let payload = this._protocol.writeMessage(message);
+
+    return new Promise((resolve, reject) => {
+      this._socket.send(payload, err => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  private async tryRecovery(): Promise<void> {
     // Clean ack cache
 
     if (this._isStopped) {
@@ -172,23 +236,27 @@ export class WebPubSubClient {
     }
 
     // Build recovery uri
-    var recoveryUri = this.buildRecoveryUri();
+    let recoveryUri = this.buildRecoveryUri();
     if (!recoveryUri) {
       console.warn("Connection id or reonnection token is not availble");
       this.raiseClose(this._lastCloseEvent);
       return;
     }
 
-    var abortSignal = AbortController.timeout(30 * 1000);
-    var timeout = delay(30 * 1000).then(() => abortSignal.onabort) // 30s
+    let abortSignal = AbortController.timeout(30 * 1000);
+    let timeout = delay(30 * 1000).then(() => abortSignal.onabort) // 30s
     while (timeout) {
-
+      try {
+        await this.connectCore(recoveryUri);
+        return;
+      } catch {
+        await delay(1000);
+      }
     }
 
-    Promise.race()
   }
 
-  buildDefaultOptions(): WebPubSubClientOptions {
+  private buildDefaultOptions(): WebPubSubClientOptions {
     return <WebPubSubClientOptions> {
       protocol: new WebPubSubJsonProtocol(),
       reconnectionOptions: <ReconnectionOptions> {
@@ -198,14 +266,21 @@ export class WebPubSubClient {
     }
   }
 
-  buildRecoveryUri(): string|null {
+  private buildRecoveryUri(): string|null {
     if (this._connectionId && this._reconnectionToken) {
-      var url = new URL(this._uri);
+      let url = new URL(this._uri);
       url.searchParams.append('awps_connection_id', this._connectionId);
       url.searchParams.append('awps_reconnection_token', this._reconnectionToken);
       return url.toString();
     }
     return null;
+  }
+
+  getOrAddGroup(name: string): WebPubSubGroup {
+    if (!this._groupMap.has(name)) {
+      this._groupMap.set(name, new WebPubSubGroup(name));
+    }
+    return this._groupMap.get(name) as WebPubSubGroup; 
   }
 }
 
@@ -218,4 +293,14 @@ enum WebPubSubClientState {
   Connecting = 2,
   Connected = 3,
   Recovering = 4,
+}
+
+class WebPubSubGroup {
+  public readonly name: string;
+  public isJoined = false;
+  public callback?: OnGroupMessageReceived;
+
+  constructor(name: string) {
+    this.name = name;
+  }
 }

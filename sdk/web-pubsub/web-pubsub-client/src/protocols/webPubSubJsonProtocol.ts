@@ -2,7 +2,8 @@ import { WebPubSubClientProtocol } from ".";
 import { AckMessage, ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage, WebPubSubMessage } from "../models/messages";
 
 export class WebPubSubJsonProtocol implements WebPubSubClientProtocol {
-  name = "json.webpubsub.azure.v1";
+  public isReliableSubProtocol = false;
+  public name = "json.webpubsub.azure.v1";
 
   parseMessages(input: string): WebPubSubMessage {
     // The interface does allow "ArrayBuffer" to be passed in, but this implementation does not. So let's throw a useful error.
