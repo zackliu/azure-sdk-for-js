@@ -12,3 +12,12 @@ export interface ReconnectionOptions {
   autoReconnect: boolean;
   autoRejoinGroups: boolean;
 }
+
+export interface SendToGroupOptions {
+  noEcho: boolean;
+  fireAndForget:boolean;
+}
+
+export interface SendToServerOptions {
+  fireAndForget:boolean;
+}
