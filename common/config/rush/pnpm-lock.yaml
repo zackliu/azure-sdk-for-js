@@ -3900,7 +3900,7 @@ packages:
     dependencies:
       semver: 7.3.7
       shelljs: 0.8.5
-      typescript: 4.9.0-dev.20220913
+      typescript: 4.9.0-dev.20220923
     dev: false
 
   /downlevel-dts/0.4.0:
@@ -8648,8 +8648,8 @@ packages:
     hasBin: true
     dev: false
 
-  /typescript/4.9.0-dev.20220913:
-    resolution: {integrity: sha512-v/DpPFVU1aThfbgdqGaTFD97b+aDqHqkAnQGb6VVsuxiO4/84aIzXp/Xsc7P6sz7+7RiWJqogy2O3Qg3DtD/Fg==}
+  /typescript/4.9.0-dev.20220923:
+    resolution: {integrity: sha512-BaTN9dPBZugYsJFXtoEFz85E7WsalhCrJT3IcrGj+d3LVrwVCOqiFxY/uNfhWkvJ4apXqjQrgiXiYxtPL/TKSw==}
     engines: {node: '>=4.2.0'}
     hasBin: true
     dev: false
@@ -8947,6 +8947,19 @@ packages:
 
   /ws/8.2.3:
     resolution: {integrity: sha512-wBuoj1BDpC6ZQ1B7DWQBYVLphPWkm8i9Y0/3YdHjHKHiohOJ1ws+3OccDWtH+PoC9DZD5WOTrJvNbWvjS6JWaA==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: ^5.0.2
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
+
+  /ws/8.5.0:
+    resolution: {integrity: sha512-BWX0SWVgLPzYwF8lTzEy1egjhS4S4OEAHfsO8o65WOVsrnSRGaSiUaa9e0ggGlkMTtBlmOpEXiie9RUcBO86qg==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -18494,7 +18507,7 @@ packages:
     dev: false
 
   file:projects/web-pubsub-client.tgz:
-    resolution: {integrity: sha512-G5WcoSbhqyw1ofEzbAw9CzCvOcVmu7/yrSLj054/uBEbPeM0WzZHxGAW0S4pQ6MWQVJaohYpfWzKe+BPgm8Kkg==, tarball: file:projects/web-pubsub-client.tgz}
+    resolution: {integrity: sha512-/6229hOKgrsHo9MxuVXx/nMJxHrjhmOym13qiS25HPse5Az9baM38KKJSztfC3jbD8C88EBYHrQGduSGAdD8RA==, tarball: file:projects/web-pubsub-client.tgz}
     name: '@rush-temp/web-pubsub-client'
     version: 0.0.0
     dependencies:
@@ -18538,6 +18551,7 @@ packages:
       source-map-support: 0.5.21
       tslib: 2.4.0
       typescript: 4.6.4
+      ws: 8.5.0
     transitivePeerDependencies:
       - bufferutil
       - debug
