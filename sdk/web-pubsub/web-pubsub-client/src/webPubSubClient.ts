@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-import { AbortController, AbortSignal, AbortSignalLike } from "@azure/abort-controller";
+import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { SendMessageError } from "./errors";
 import { AckResult, OnConnectedArgs, OnDataMessageArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
@@ -26,6 +26,14 @@ export class WebPubSubClient {
   private readonly _ackMap: Map<bigint, AckEntity>;
   private readonly _sequenceId: SequenceId;
 
+  // client lifetime
+  private _isStopped = false;
+  private _state: WebPubSubClientState;
+  private _onMessage?: OnMessage;
+  private _onConnected?: OnConnected;
+  private _onDisconnected?: OnDisconnected;
+
+  // connection lifetime
   private _socket?: WebSocket;
   private _uri?: string;
   private _lastCloseEvent?: CloseEvent;
@@ -40,13 +48,6 @@ export class WebPubSubClient {
     this._ackId = this._ackId + BigInt(1);
     return this._ackId;
   }
-
-  private _isStopped = false;
-  private _state: WebPubSubClientState;
-
-  private _onMessage?: OnMessage;
-  private _onConnected?: OnConnected;
-  private _onDisconnected?: OnDisconnected;
 
   constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
   constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions)
@@ -90,8 +91,11 @@ export class WebPubSubClient {
     await this.connectCore(uri);
   }
 
-  public async stop(abortSignal?: AbortSignalLike) : Promise<void> {
-
+  public stop() {
+    this._isStopped = true;
+    if (this._socket) {
+      this._socket.close();
+    }
   }
 
   public async sendToServer(eventName: string,
@@ -193,7 +197,7 @@ export class WebPubSubClient {
 
       socket = new WebSocket(uri, this._protocol.name);
 
-      socket.onopen = e => {
+      socket.onopen = _ => {
         console.log("connection is opened");
         this._socket = socket;
         this._state = WebPubSubClientState.Connected;
@@ -346,7 +350,7 @@ export class WebPubSubClient {
     if (this._socket == null || this._socket.readyState != WebSocket.OPEN) {
       throw new Error("The connection is not connected.");
     }
-    await sendAsync(this._socket, payload);
+    await sendAsync(this._socket, payload, abortSignal);
   }
 
   private async sendMessageWithAckId(messageProvider: (ackId: bigint) => WebPubSubMessage, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
@@ -373,7 +377,6 @@ export class WebPubSubClient {
 
   private async tryRecovery(): Promise<void> {
     // Clean ack cache
-
     if (this._isStopped) {
       console.warn("The client is stopped. Stop recovery.");
       this.raiseClose();
@@ -439,7 +442,7 @@ function delay(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
 
-function sendAsync(socket: WebSocket, data: any): Promise<void> {
+function sendAsync(socket: WebSocket, data: any, _?: AbortSignalLike): Promise<void> {
   return new Promise((resolve, reject) => {
     socket.send(data, err => {
       if (err) {
