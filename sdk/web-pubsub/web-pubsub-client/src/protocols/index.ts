@@ -24,3 +24,5 @@ export interface WebPubSubClientProtocol {
     */
   writeMessage(message: WebPubSubMessage): string | ArrayBuffer;
 }
+
+export * from "./webPubSubJsonProtocol"

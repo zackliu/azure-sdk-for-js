@@ -29,9 +29,13 @@ export class WebPubSubClient {
   // client lifetime
   private _isStopped = false;
   private _state: WebPubSubClientState;
-  private _onMessage?: OnMessage;
-  private _onConnected?: OnConnected;
-  private _onDisconnected?: OnDisconnected;
+  public onMessage?: OnMessage;
+  public onConnected?: OnConnected;
+  public onDisconnected?: OnDisconnected;
+  public onGroupMessage(groupName: string, calback: OnGroupMessageReceived) {
+    let group = this.getOrAddGroup(groupName);
+    group.callback = calback;
+  }
 
   // connection lifetime
   private _socket?: WebSocket;
@@ -286,8 +290,8 @@ export class WebPubSubClient {
 
     if (!this._isInitialConnected) {
       this._isInitialConnected = true;
-      if (this._onConnected != null) {
-        await this._onConnected({message: message});
+      if (this.onConnected != null) {
+        await this.onConnected({message: message});
       }
     }
   }
@@ -322,8 +326,8 @@ export class WebPubSubClient {
       }
     }
 
-    if (this._onMessage != null) {
-      await this._onMessage({message: message});
+    if (this.onMessage != null) {
+      await this.onMessage({message: message});
     }
   }
 
@@ -339,8 +343,8 @@ export class WebPubSubClient {
   }
 
   private async raiseClose(): Promise<void> {
-    if (this._onDisconnected) {
-      await this._onDisconnected({message: this._lastDisconnectedMessage, event: this._lastCloseEvent});
+    if (this.onDisconnected) {
+      await this.onDisconnected({message: this._lastDisconnectedMessage, event: this._lastCloseEvent});
     }
   }
 

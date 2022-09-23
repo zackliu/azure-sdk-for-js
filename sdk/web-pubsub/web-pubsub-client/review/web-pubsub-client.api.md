@@ -10,46 +10,149 @@ import { AbortSignalLike } from '@azure/abort-controller';
 import { CloseEvent } from 'ws';
 
 // @public (undocumented)
+export interface AckMessage extends WebPubSubMessage {
+    // (undocumented)
+    ackId: bigint;
+    // (undocumented)
+    error?: ErrorDetail;
+    // (undocumented)
+    success: boolean;
+    // (undocumented)
+    readonly type: DownstreamMessageType.Ack;
+}
+
+// @public (undocumented)
 export interface AckResult {
-    // Warning: (ae-forgotten-export) The symbol "AckMessage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     ack: AckMessage;
 }
 
 // @public (undocumented)
+export interface ConnectedMessage extends WebPubSubMessage {
+    // (undocumented)
+    connectionId: string;
+    // (undocumented)
+    reconnectionToken: string;
+    // (undocumented)
+    readonly type: DownstreamMessageType.Connected;
+    // (undocumented)
+    userId: string;
+}
+
+// @public (undocumented)
+export interface DataMessage extends WebPubSubMessage {
+    // (undocumented)
+    data: any;
+    // (undocumented)
+    dataType: WebPubSubDataType;
+    // (undocumented)
+    sequenceId?: bigint;
+}
+
+// @public (undocumented)
+export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
+    constructor(token: string);
+    constructor(tokenProvider: TokenProvider);
+    getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
+}
+
+// @public (undocumented)
+export interface DisconnectedMessage extends WebPubSubMessage {
+    // (undocumented)
+    reason: string;
+    // (undocumented)
+    readonly type: DownstreamMessageType.Disconnected;
+}
+
+// @public (undocumented)
+export enum DownstreamMessageType {
+    // (undocumented)
+    Ack = 1,
+    // (undocumented)
+    Connected = 2,
+    // (undocumented)
+    Disconnected = 3,
+    // (undocumented)
+    GroupData = 4,
+    // (undocumented)
+    ServerData = 5
+}
+
+// @public (undocumented)
+export interface ErrorDetail {
+    // (undocumented)
+    message: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public (undocumented)
+export interface GroupDataMessage extends DataMessage {
+    // (undocumented)
+    fromUserId: string;
+    // (undocumented)
+    group: string;
+    // (undocumented)
+    readonly type: DownstreamMessageType.GroupData;
+}
+
+// @public (undocumented)
+export interface JoinGroupMessage extends WebPubSubMessage {
+    // (undocumented)
+    ackId?: bigint;
+    // (undocumented)
+    group: string;
+    // (undocumented)
+    readonly type: UpstreamMessageType.JoinGroup;
+}
+
+// @public (undocumented)
+export interface LeaveGroupMessage extends WebPubSubMessage {
+    // (undocumented)
+    ackId?: bigint;
+    // (undocumented)
+    group: string;
+    // (undocumented)
+    readonly type: UpstreamMessageType.LeaveGroup;
+}
+
+// @public (undocumented)
+export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
+
+// @public (undocumented)
 export interface OnConnectedArgs {
-    // Warning: (ae-forgotten-export) The symbol "ConnectedMessage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     message: ConnectedMessage;
 }
 
 // @public (undocumented)
 export interface OnDataMessageArgs {
-    // Warning: (ae-forgotten-export) The symbol "DataMessage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     message: DataMessage;
 }
 
 // @public (undocumented)
+export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
+
+// @public (undocumented)
 export interface OnDisconnectedArgs {
     // (undocumented)
     event?: CloseEvent;
-    // Warning: (ae-forgotten-export) The symbol "DisconnectedMessage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     message?: DisconnectedMessage;
 }
 
 // @public (undocumented)
 export interface OnGroupDataMessageArgs {
-    // Warning: (ae-forgotten-export) The symbol "GroupDataMessage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     message: GroupDataMessage;
 }
+
+// @public (undocumented)
+export type OnGroupMessageReceived = (args: OnGroupDataMessageArgs) => Promise<void>;
+
+// @public (undocumented)
+export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
 
 // @public (undocumented)
 export interface ReconnectionOptions {
@@ -57,6 +160,45 @@ export interface ReconnectionOptions {
     autoReconnect: boolean;
     // (undocumented)
     autoRejoinGroups: boolean;
+}
+
+// @public (undocumented)
+export interface SendEventMessage extends WebPubSubMessage {
+    // (undocumented)
+    ackId?: bigint;
+    // (undocumented)
+    data: any;
+    // (undocumented)
+    dataType: WebPubSubDataType;
+    // (undocumented)
+    eventName: string;
+    // (undocumented)
+    readonly type: UpstreamMessageType.SendEvent;
+}
+
+// @public (undocumented)
+export class SendMessageError extends Error {
+    constructor(message: string, ackMessage?: AckMessage);
+    // (undocumented)
+    ackMessage?: AckMessage;
+    // (undocumented)
+    name: string;
+}
+
+// @public (undocumented)
+export interface SendToGroupMessage extends WebPubSubMessage {
+    // (undocumented)
+    ackId?: bigint;
+    // (undocumented)
+    data: any;
+    // (undocumented)
+    dataType: WebPubSubDataType;
+    // (undocumented)
+    group: string;
+    // (undocumented)
+    noEcho: boolean;
+    // (undocumented)
+    readonly type: UpstreamMessageType.SendToGroup;
 }
 
 // @public (undocumented)
@@ -74,9 +216,39 @@ export interface SendToServerOptions {
 }
 
 // @public (undocumented)
+export interface SequenceAckMessage extends WebPubSubMessage {
+    // (undocumented)
+    sequenceId: bigint;
+    // (undocumented)
+    readonly type: UpstreamMessageType.SequenceAck;
+}
+
+// @public (undocumented)
+export interface ServerDataMessage extends DataMessage {
+    // (undocumented)
+    readonly type: DownstreamMessageType.ServerData;
+}
+
+// @public (undocumented)
+export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>;
+
+// @public (undocumented)
+export enum UpstreamMessageType {
+    // (undocumented)
+    JoinGroup = 1,
+    // (undocumented)
+    LeaveGroup = 2,
+    // (undocumented)
+    SendEvent = 4,
+    // (undocumented)
+    SendToGroup = 3,
+    // (undocumented)
+    SequenceAck = 5
+}
+
+// @public (undocumented)
 export class WebPubSubClient {
     constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
-    // Warning: (ae-forgotten-export) The symbol "WebPubSubClientCredential" needs to be exported by the entry point index.d.ts
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
     // (undocumented)
     connect(abortSignal?: AbortSignalLike): Promise<void>;
@@ -85,9 +257,15 @@ export class WebPubSubClient {
     // (undocumented)
     leaveGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult>;
     // (undocumented)
+    onConnected?: OnConnected;
+    // (undocumented)
+    onDisconnected?: OnDisconnected;
+    // (undocumented)
+    onGroupMessage(groupName: string, calback: OnGroupMessageReceived): void;
+    // (undocumented)
+    onMessage?: OnMessage;
+    // (undocumented)
     sendToGroup(groupName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: bigint, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
-    // Warning: (ae-forgotten-export) The symbol "WebPubSubDataType" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     sendToServer(eventName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: bigint, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     // (undocumented)
@@ -95,13 +273,56 @@ export class WebPubSubClient {
 }
 
 // @public (undocumented)
+export interface WebPubSubClientCredential {
+    getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
+}
+
+// @public (undocumented)
 export interface WebPubSubClientOptions {
-    // Warning: (ae-forgotten-export) The symbol "WebPubSubClientProtocol" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     protocol: WebPubSubClientProtocol;
     // (undocumented)
     reconnectionOptions: ReconnectionOptions;
+}
+
+// @public (undocumented)
+export interface WebPubSubClientProtocol {
+    // (undocumented)
+    isReliableSubProtocol: boolean;
+    // (undocumented)
+    name: string;
+    parseMessages(input: string | ArrayBuffer | Buffer): WebPubSubMessage;
+    writeMessage(message: WebPubSubMessage): string | ArrayBuffer;
+}
+
+// @public (undocumented)
+export enum WebPubSubDataType {
+    // (undocumented)
+    Binary = 1,
+    // (undocumented)
+    Json = 2,
+    // (undocumented)
+    Protobuf = 4,
+    // (undocumented)
+    Text = 3
+}
+
+// @public (undocumented)
+export class WebPubSubJsonProtocol implements WebPubSubClientProtocol {
+    // (undocumented)
+    isReliableSubProtocol: boolean;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    parseMessages(input: string): WebPubSubMessage;
+    // (undocumented)
+    writeMessage(message: WebPubSubMessage): string;
+}
+
+// @public (undocumented)
+export interface WebPubSubMessage {
+    // (undocumented)
+    type: DownstreamMessageType | UpstreamMessageType;
 }
 
 // (No @packageDocumentation comment for this package)
