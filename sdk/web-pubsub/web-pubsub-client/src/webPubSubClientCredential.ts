@@ -1,4 +1,3 @@
-import { WebPubSubClientCredentialOptions } from "./webPubSubClientCredentialOptions";
 import { AbortSignalLike } from "@azure/abort-controller";
 
 export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>

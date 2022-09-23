@@ -2,27 +2,29 @@
 // Licensed under the MIT license.
 
 import { AbortController, AbortSignal, AbortSignalLike } from "@azure/abort-controller";
-import { resolve } from "dns";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
-import { ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
-import { ConnectedMessage, DataMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage } from "./models/messages";
+import { SendMessageError } from "./errors";
+import { AckResult, OnConnectedArgs, OnDataMessageArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
+import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage } from "./models/messages";
 import { WebPubSubClientProtocol } from "./protocols";
 import { WebPubSubJsonProtocol } from "./protocols/webPubSubJsonProtocol";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
 
-export type OnMessage = (data: DataMessage) => Promise<void>;
+export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
 
-export type OnConnected = (data: ConnectedMessage) => Promise<void>;
+export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
 
-export type OnDisconnected = (data: DisconnectedMessage) => Promise<void>;
+export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
 
-export type OnGroupMessageReceived = (data: GroupDataMessage) => Promise<void>;
+export type OnGroupMessageReceived = (args: OnGroupDataMessageArgs) => Promise<void>;
 
 export class WebPubSubClient {
   private readonly _protocol: WebPubSubClientProtocol;
   private readonly _credential: WebPubSubClientCredential;
   private readonly _options: WebPubSubClientOptions;
   private readonly _groupMap: Map<string, WebPubSubGroup>;
+  private readonly _ackMap: Map<bigint, AckEntity>;
+  private readonly _sequenceId: SequenceId;
 
   private _socket?: WebSocket;
   private _uri?: string;
@@ -32,6 +34,7 @@ export class WebPubSubClient {
   private _reconnectionToken?: string;
   private _isInitialConnected = false;
   private _ackId: bigint;
+  private _sequenceAckTask?: AbortableTask;
 
   private nextAckId() {
     this._ackId = this._ackId + BigInt(1);
@@ -62,6 +65,8 @@ export class WebPubSubClient {
 
     this._protocol = this._options.protocol;
     this._groupMap = new Map<string, WebPubSubGroup>();
+    this._ackMap = new Map<bigint, AckEntity>();
+    this._sequenceId = new SequenceId();
 
     this._state = WebPubSubClientState.Disconnected;
     this._ackId = BigInt(0);
@@ -93,11 +98,35 @@ export class WebPubSubClient {
      content: string | ArrayBuffer,
      dataType: WebPubSubDataType,
      ackId?: bigint,
-     abortSignal?: AbortSignalLike): Promise<void> {
+     options?: SendToServerOptions,
+     abortSignal?: AbortSignalLike): Promise<void|AckResult> {
+      if (options == null) {
+        options = {fireAndForget: false};
+      }
 
+      if (!options.fireAndForget) {
+        return await this.sendMessageWithAckId(id => {
+          return {
+            type: UpstreamMessageType.SendEvent,
+            dataType: dataType,
+            data: content,
+            ackId: id,
+            eventName: eventName
+          } as SendEventMessage;
+        }, ackId, abortSignal); 
+      };
+
+      const message =  {
+        type: UpstreamMessageType.SendEvent,
+        dataType: dataType,
+        data: content,
+        eventName: eventName
+      } as SendEventMessage
+
+      return await this.sendMessage(message, abortSignal);
   }
 
-  public async joinGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<void> {
+  public async joinGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = true;
 
@@ -110,14 +139,14 @@ export class WebPubSubClient {
     }, ackId, abortSignal);
   }
 
-  public async leaveGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<void> {
+  public async leaveGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = false;
 
     return await this.sendMessageWithAckId(id => {
       return {
         group: groupName,
-        ackId: ackId,
+        ackId: id,
         type: UpstreamMessageType.LeaveGroup
       } as LeaveGroupMessage;
     }, ackId, abortSignal);
@@ -127,9 +156,7 @@ export class WebPubSubClient {
     dataType: WebPubSubDataType,
     ackId?: bigint,
     options?: SendToGroupOptions,
-    abortSignal?: AbortSignalLike): Promise<void> {
-      let group = this.getOrAddGroup(groupName);
-
+    abortSignal?: AbortSignalLike): Promise<void|AckResult> {
       if (options == null) {
         options = {fireAndForget: false, noEcho: false};
       }
@@ -170,19 +197,38 @@ export class WebPubSubClient {
         console.log("connection is opened");
         this._socket = socket;
         this._state = WebPubSubClientState.Connected;
+        if (this._sequenceAckTask != null) {
+          this._sequenceAckTask.abort();
+        }
+        this._sequenceAckTask = new AbortableTask(async () => {
+          let [isUpdated, seqId] = this._sequenceId.tryGetSequenceId();
+          if (isUpdated) {
+            const message: SequenceAckMessage = {
+              type: UpstreamMessageType.SequenceAck,
+              sequenceId: seqId!
+            }
+            await this.sendMessage(message);
+          }
+        }, 1000);
         resolve();
       }
 
       socket.onerror = e => {
+        if (this._sequenceAckTask != null) {
+          this._sequenceAckTask.abort();
+        }
         reject(e.error);
       }
 
       socket.onclose = e => {
         if (this._state == WebPubSubClientState.Connected) {
+          if (this._sequenceAckTask != null) {
+            this._sequenceAckTask.abort();
+          }
           this._lastCloseEvent = e;
           if (e.code == 1008) {
             console.warn("The websocket close with status code 1008. Stop recovery.");
-            this.raiseClose(e);
+            this.raiseClose();
           } else {
             this.tryRecovery();
           }
@@ -208,32 +254,36 @@ export class WebPubSubClient {
     let message = this._protocol.parseMessages(convertedData);
     switch (message.type) {
       case DownstreamMessageType.Ack: {
+        this.handleAck(message as AckMessage);
         break;
       }
       case DownstreamMessageType.Connected: {
-        this.handleConnected(message as ConnectedMessage)
+        this.handleConnected(message as ConnectedMessage);
         break;
       }
       case DownstreamMessageType.Disconnected: {
+        this.handleDisconnected(message as DisconnectedMessage);
         break;
       }
       case DownstreamMessageType.GroupData: {
+        this.handleGroupData(message as GroupDataMessage);
         break;
       }
       case DownstreamMessageType.ServerData: {
-        
+        this.handleServerData(message as ServerDataMessage);
+        break;
       }
     }
   }
 
-  private handleConnected(message: ConnectedMessage): void {
+  private async handleConnected(message: ConnectedMessage): Promise<void> {
     this._connectionId = message.connectionId;
     this._reconnectionToken = message.reconnectionToken;
 
     if (!this._isInitialConnected) {
       this._isInitialConnected = true;
       if (this._onConnected != null) {
-        this._onConnected(message);
+        await this._onConnected({message: message});
       }
     }
   }
@@ -242,39 +292,83 @@ export class WebPubSubClient {
     this._lastDisconnectedMessage = message;
   }
 
-  private handleGroupData(message: GroupDataMessage): void {
+  private async handleGroupData(message: GroupDataMessage): Promise<void> {
+    if (message.sequenceId != null) {
+      if (!this._sequenceId.tryUpdate(message.sequenceId))
+      {
+        // drop duplicated message
+        return;
+      }
+    }
     
+    if (this._groupMap.has(message.group)) {
+      let group = this._groupMap.get(message.group)
+      if (group?.callback != null) {
+        await group.callback({message: message});
+      }
+    }
   }
 
-  private handleServerData(message: ServerDataMessage): void {
+  private async handleServerData(message: ServerDataMessage): Promise<void> {
+    if (message.sequenceId != null) {
+      if (!this._sequenceId.tryUpdate(message.sequenceId))
+      {
+        // drop duplicated message
+        return;
+      }
+    }
 
+    if (this._onMessage != null) {
+      await this._onMessage({message: message});
+    }
   }
 
-  private raiseClose(event: CloseEvent) {
-
+  private handleAck(message: AckMessage): void {
+    if (this._ackMap.has(message.ackId)) {
+      let entity = this._ackMap.get(message.ackId)!;
+      if (message.success || (message.error && message.error.name == "Duplicate")) {
+        entity.resolve({ack: message});
+      } else {
+        entity.reject(new SendMessageError("Failed to send message.", message));
+      }
+    }
   }
 
-  private sendMessage(message: WebPubSubMessage, abortSignal?: AbortSignalLike): Promise<void> {
+  private async raiseClose(): Promise<void> {
+    if (this._onDisconnected) {
+      await this._onDisconnected({message: this._lastDisconnectedMessage, event: this._lastCloseEvent});
+    }
+  }
+
+  private async sendMessage(message: WebPubSubMessage, abortSignal?: AbortSignalLike): Promise<void> {
     let payload = this._protocol.writeMessage(message);
 
-    return new Promise((resolve, reject) => {
-      this._socket.send(payload, err => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve();
-        }
-      });
-    });
+    if (this._socket == null || this._socket.readyState != WebSocket.OPEN) {
+      throw new Error("The connection is not connected.");
+    }
+    await sendAsync(this._socket, payload);
   }
 
-  private sendMessageWithAckId(messageProvider: (ackId: bigint) => WebPubSubMessage, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<void> {
+  private async sendMessageWithAckId(messageProvider: (ackId: bigint) => WebPubSubMessage, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
     if (ackId == null) {
       ackId = this.nextAckId();
     }
-
+    
     const message = messageProvider(ackId);
-    return this.sendMessage(message, abortSignal);
+    if (!this._ackMap.has(ackId)) {
+      this._ackMap.set(ackId, new AckEntity())
+    }
+    let entity = this._ackMap.get(ackId)!;
+
+    try
+    {
+      await this.sendMessage(message, abortSignal);
+    } catch (error) {
+      this._ackMap.delete(ackId);
+      throw error;
+    }
+
+    return await entity.promise();
   }
 
   private async tryRecovery(): Promise<void> {
@@ -282,13 +376,13 @@ export class WebPubSubClient {
 
     if (this._isStopped) {
       console.warn("The client is stopped. Stop recovery.");
-      this.raiseClose(this._lastCloseEvent);
+      this.raiseClose();
       return;
     }
 
     if (!this._protocol.isReliableSubProtocol) {
       console.warn("The protocol is not reliable, recovery is not applicable");
-      this.raiseClose(this._lastCloseEvent);
+      this.raiseClose();
       return;
     }
 
@@ -296,7 +390,7 @@ export class WebPubSubClient {
     let recoveryUri = this.buildRecoveryUri();
     if (!recoveryUri) {
       console.warn("Connection id or reonnection token is not availble");
-      this.raiseClose(this._lastCloseEvent);
+      this.raiseClose();
       return;
     }
 
@@ -333,7 +427,7 @@ export class WebPubSubClient {
     return null;
   }
 
-  getOrAddGroup(name: string): WebPubSubGroup {
+  private getOrAddGroup(name: string): WebPubSubGroup {
     if (!this._groupMap.has(name)) {
       this._groupMap.set(name, new WebPubSubGroup(name));
     }
@@ -343,6 +437,18 @@ export class WebPubSubClient {
 
 function delay(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
+}
+
+function sendAsync(socket: WebSocket, data: any): Promise<void> {
+  return new Promise((resolve, reject) => {
+    socket.send(data, err => {
+      if (err) {
+        reject(err)
+      } else {
+        resolve();
+      }
+    });
+  })
 }
 
 enum WebPubSubClientState {
@@ -359,5 +465,111 @@ class WebPubSubGroup {
 
   constructor(name: string) {
     this.name = name;
+  }
+}
+
+class AckEntity {
+  private readonly _deferred: Deferred<AckResult>;
+
+  constructor() {
+    this._deferred = new Deferred();
+  }
+
+  promise() {
+    return this._deferred.promise;
+  }
+
+  resolve(value: AckResult | PromiseLike<AckResult>) {
+    this._deferred.resolve(value);
+  }
+
+  reject(reason?: any) {
+    this._deferred.reject(reason);
+  }
+}
+
+class Deferred<T> {
+  private readonly _promise: Promise<T>
+  private _resolve?: (value: T | PromiseLike<T>) => void
+  private _reject?: (reason?: any) => void
+
+  constructor () {
+    this._promise = new Promise<T>((resolve, reject) => {
+      this._resolve = resolve
+      this._reject = reject
+    })
+  }
+
+  get promise (): Promise<T> {
+    return this._promise
+  }
+
+  resolve = (value: T | PromiseLike<T>): void => {
+    this._resolve!(value);
+  }
+
+  reject = (reason?: any): void => {
+      this._reject!(reason)
+  }
+}
+
+class SequenceId {
+  private _sequenceId: bigint;
+  private _isUpdate: boolean;
+
+  constructor() {
+    this._sequenceId = BigInt(0);
+    this._isUpdate = false;
+  }
+
+  tryUpdate(sequenceId: bigint): boolean {
+    this._isUpdate = true;
+    if (sequenceId > this._sequenceId) {
+      this._sequenceId = sequenceId;
+      return true;
+    }
+    return false;
+  }
+
+  tryGetSequenceId(): [boolean, bigint|null] {
+    if (this._isUpdate) {
+      return [true, this._sequenceId];
+    }
+
+    return [false, null];
+  }
+}
+
+class AbortableTask {
+  private readonly _func: (obj?: any) => Promise<void>;
+  private readonly _abortController: AbortController;
+  private readonly _interval: number;
+  private readonly _obj?: any;
+
+  constructor(func: (obj?: any) => Promise<void>, interval: number, obj?: any) {
+    this._func = func;
+    this._abortController = new AbortController();
+    this._interval = interval;
+    this._obj = obj;
+    this.start()
+  }
+
+  public abort() {
+    try {
+      this._abortController.abort();
+    } catch {
+    }
+  }
+
+  private async start(): Promise<void> {
+    let signal = this._abortController.signal;
+    while (!signal.aborted) {
+      try {
+        await this._func(this._obj);
+      } catch {
+      } finally {
+        await delay(this._interval);
+      }
+    }
   }
 }

@@ -20,7 +20,7 @@ export enum UpstreamMessageType {
 
 export interface AckMessage extends WebPubSubMessage {
   readonly type: DownstreamMessageType.Ack;
-  ackId?: bigint;
+  ackId: bigint;
   success: boolean;
   error?: ErrorDetail;
 }
