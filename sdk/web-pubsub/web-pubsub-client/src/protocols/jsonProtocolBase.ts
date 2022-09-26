@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 import { AckMessage, ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, JoinGroupMessage, LeaveGroupMessage, SendEventMessage, SendToGroupMessage, SequenceAckMessage, ServerDataMessage, UpstreamMessageType, WebPubSubDataType, WebPubSubMessage } from "../models/messages";
 import { JSONTypes } from "../webPubSubClient";
 

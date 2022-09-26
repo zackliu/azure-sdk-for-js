@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 import { AckMessage } from "../models/messages";
 
 export class SendMessageError extends Error {

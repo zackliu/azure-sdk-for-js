@@ -9,173 +9,134 @@
 import { AbortSignalLike } from '@azure/abort-controller';
 import { CloseEvent } from 'ws';
 
-// @public (undocumented)
+// @public
 export interface AckMessage extends WebPubSubMessage {
-    // (undocumented)
     ackId: number;
-    // (undocumented)
     error?: ErrorDetail;
-    // (undocumented)
     success: boolean;
-    // (undocumented)
     readonly _type: DownstreamMessageType.Ack;
 }
 
-// @public (undocumented)
+// @public
 export interface AckResult {
-    // (undocumented)
     ack: AckMessage;
 }
 
-// @public (undocumented)
+// @public
+export type ClientAccessUriProvider = (abortSignal?: AbortSignalLike) => Promise<string>;
+
+// @public
 export interface ConnectedMessage extends WebPubSubMessage {
-    // (undocumented)
     connectionId: string;
-    // (undocumented)
     reconnectionToken: string;
-    // (undocumented)
     readonly _type: DownstreamMessageType.Connected;
-    // (undocumented)
     userId: string;
 }
 
-// @public (undocumented)
+// @public
 export interface DataMessage extends WebPubSubMessage {
-    // (undocumented)
     data: JSONTypes | ArrayBuffer;
-    // (undocumented)
     dataType: WebPubSubDataType;
-    // (undocumented)
     sequenceId?: number;
 }
 
-// @public (undocumented)
+// @public
 export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
-    constructor(token: string);
-    constructor(tokenProvider: TokenProvider);
+    constructor(clientAccessUri: string);
+    constructor(clientAccessUriProvider: ClientAccessUriProvider);
     getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
-// @public (undocumented)
+// @public
 export interface DisconnectedMessage extends WebPubSubMessage {
-    // (undocumented)
     message: string;
-    // (undocumented)
     readonly _type: DownstreamMessageType.Disconnected;
 }
 
-// @public (undocumented)
+// @public
 export enum DownstreamMessageType {
-    // (undocumented)
     Ack = "ack",
-    // (undocumented)
     Connected = "connected",
-    // (undocumented)
     Disconnected = "disconnected",
-    // (undocumented)
     GroupData = "groupData",
-    // (undocumented)
     ServerData = "serverData"
 }
 
-// @public (undocumented)
+// @public
 export interface ErrorDetail {
-    // (undocumented)
     message: string;
-    // (undocumented)
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export interface GroupDataMessage extends DataMessage {
-    // (undocumented)
     fromUserId: string;
-    // (undocumented)
     group: string;
-    // (undocumented)
     readonly _type: DownstreamMessageType.GroupData;
 }
 
-// @public (undocumented)
+// @public
 export interface JoinGroupMessage extends WebPubSubMessage {
-    // (undocumented)
     ackId?: number;
-    // (undocumented)
     group: string;
-    // (undocumented)
     readonly _type: UpstreamMessageType.JoinGroup;
 }
 
-// @public (undocumented)
+// @public
 export type JSONTypes = string | number | boolean | object;
 
-// @public (undocumented)
+// @public
 export interface LeaveGroupMessage extends WebPubSubMessage {
-    // (undocumented)
     ackId?: number;
-    // (undocumented)
     group: string;
-    // (undocumented)
     readonly _type: UpstreamMessageType.LeaveGroup;
 }
 
-// @public (undocumented)
+// @public
 export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
 
-// @public (undocumented)
+// @public
 export interface OnConnectedArgs {
-    // (undocumented)
     message: ConnectedMessage;
 }
 
-// @public (undocumented)
+// @public
 export interface OnDataMessageArgs {
-    // (undocumented)
     message: DataMessage;
 }
 
-// @public (undocumented)
+// @public
 export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
 
-// @public (undocumented)
+// @public
 export interface OnDisconnectedArgs {
-    // (undocumented)
     event?: CloseEvent;
-    // (undocumented)
     message?: DisconnectedMessage;
 }
 
-// @public (undocumented)
+// @public
 export interface OnGroupDataMessageArgs {
-    // (undocumented)
     message: GroupDataMessage;
 }
 
-// @public (undocumented)
+// @public
 export type OnGroupMessageReceived = (args: OnGroupDataMessageArgs) => Promise<void>;
 
-// @public (undocumented)
+// @public
 export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
 
-// @public (undocumented)
+// @public
 export interface ReconnectionOptions {
-    // (undocumented)
     autoReconnect: boolean;
-    // (undocumented)
     autoRejoinGroups: boolean;
 }
 
-// @public (undocumented)
+// @public
 export interface SendEventMessage extends WebPubSubMessage {
-    // (undocumented)
     ackId?: number;
-    // (undocumented)
     data: JSONTypes | ArrayBuffer;
-    // (undocumented)
     dataType: WebPubSubDataType;
-    // (undocumented)
     event: string;
-    // (undocumented)
     readonly _type: UpstreamMessageType.SendEvent;
 }
 
@@ -188,153 +149,107 @@ export class SendMessageError extends Error {
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export interface SendToGroupMessage extends WebPubSubMessage {
-    // (undocumented)
     ackId?: number;
-    // (undocumented)
     data: JSONTypes | ArrayBuffer;
-    // (undocumented)
     dataType: WebPubSubDataType;
-    // (undocumented)
     group: string;
-    // (undocumented)
     noEcho: boolean;
-    // (undocumented)
     readonly _type: UpstreamMessageType.SendToGroup;
 }
 
-// @public (undocumented)
+// @public
 export interface SendToGroupOptions {
-    // (undocumented)
     fireAndForget: boolean;
-    // (undocumented)
     noEcho: boolean;
 }
 
-// @public (undocumented)
+// @public
 export interface SendToServerOptions {
-    // (undocumented)
     fireAndForget: boolean;
 }
 
-// @public (undocumented)
+// @public
 export interface SequenceAckMessage extends WebPubSubMessage {
-    // (undocumented)
     sequenceId: number;
-    // (undocumented)
     readonly _type: UpstreamMessageType.SequenceAck;
 }
 
-// @public (undocumented)
+// @public
 export interface ServerDataMessage extends DataMessage {
-    // (undocumented)
     readonly _type: DownstreamMessageType.ServerData;
 }
 
-// @public (undocumented)
-export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>;
-
-// @public (undocumented)
+// @public
 export enum UpstreamMessageType {
-    // (undocumented)
     JoinGroup = "joinGroup",
-    // (undocumented)
     LeaveGroup = "leaveGroup",
-    // (undocumented)
     SendEvent = "sendEvent",
-    // (undocumented)
     SendToGroup = "sendToGroup",
-    // (undocumented)
     SequenceAck = "sequenceAck"
 }
 
-// @public (undocumented)
+// @public
 export class WebPubSubClient {
     constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
-    // (undocumented)
     connect(abortSignal?: AbortSignalLike): Promise<void>;
-    // (undocumented)
     joinGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
-    // (undocumented)
     leaveGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
-    // (undocumented)
     onConnected?: OnConnected;
-    // (undocumented)
     onDisconnected?: OnDisconnected;
-    // (undocumented)
     onGroupMessage(groupName: string, calback: OnGroupMessageReceived): void;
-    // (undocumented)
     onMessage?: OnMessage;
-    // (undocumented)
     sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
-    // (undocumented)
     sendToServer(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
-    // (undocumented)
     stop(): void;
 }
 
-// @public (undocumented)
+// @public
 export interface WebPubSubClientCredential {
     getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
-// @public (undocumented)
+// @public
 export interface WebPubSubClientOptions {
-    // (undocumented)
     protocol: WebPubSubClientProtocol;
-    // (undocumented)
     reconnectionOptions: ReconnectionOptions;
 }
 
 // @public (undocumented)
 export interface WebPubSubClientProtocol {
-    // (undocumented)
     isReliableSubProtocol: boolean;
-    // (undocumented)
     name: string;
     parseMessages(input: string | ArrayBuffer | Buffer): WebPubSubMessage;
     writeMessage(message: WebPubSubMessage): string | ArrayBuffer;
 }
 
-// @public (undocumented)
+// @public
 export enum WebPubSubDataType {
-    // (undocumented)
     Binary = "binary",
-    // (undocumented)
     Json = "json",
-    // (undocumented)
     Protobuf = "protobuf",
-    // (undocumented)
     Text = "text"
 }
 
-// @public (undocumented)
+// @public
 export class WebPubSubJsonProtocol implements WebPubSubClientProtocol {
-    // (undocumented)
     isReliableSubProtocol: boolean;
-    // (undocumented)
     name: string;
-    // (undocumented)
     parseMessages(input: string): WebPubSubMessage;
-    // (undocumented)
     writeMessage(message: WebPubSubMessage): string;
 }
 
-// @public (undocumented)
+// @public
 export class WebPubSubJsonReliableProtocol implements WebPubSubClientProtocol {
-    // (undocumented)
     isReliableSubProtocol: boolean;
-    // (undocumented)
     name: string;
-    // (undocumented)
     parseMessages(input: string): WebPubSubMessage;
-    // (undocumented)
     writeMessage(message: WebPubSubMessage): string;
 }
 
-// @public (undocumented)
+// @public
 export interface WebPubSubMessage {
     // (undocumented)
     _type: DownstreamMessageType | UpstreamMessageType;

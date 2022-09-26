@@ -10,16 +10,34 @@ import { WebPubSubClientProtocol } from "./protocols";
 import { WebPubSubJsonReliableProtocol } from "./protocols/webPubSubJsonReliableProtocol";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
 
+/**
+ * Types which can be serialized and sent as JSON.
+ */
 export type JSONTypes = string | number | boolean | object;
 
+/**
+ * Types as callback to be used when received messages.
+ */
 export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
 
+/**
+ * Types as callback to be used when connected
+ */
 export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
 
+/**
+ * Types as callback to be used when disconnected
+ */
 export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
 
+/**
+ * Types as callback to be used when received group messages.
+ */
 export type OnGroupMessageReceived = (args: OnGroupDataMessageArgs) => Promise<void>;
 
+/**
+ * The WebPubSub client
+ */
 export class WebPubSubClient {
   private readonly _protocol: WebPubSubClientProtocol;
   private readonly _credential: WebPubSubClientCredential;
@@ -29,16 +47,35 @@ export class WebPubSubClient {
   private readonly _sequenceId: SequenceId;
 
   // client lifetime
-  private _isStopped = false;
-  private _state: WebPubSubClientState;
+
+  /**
+   * Callback when received messages.
+   */
   public onMessage?: OnMessage;
+
+  /**
+   * Callback when connected
+   */
   public onConnected?: OnConnected;
+
+  /**
+   * Callback when disconnected
+   */
   public onDisconnected?: OnDisconnected;
+
+  /**
+   * Callback when received messages from specific group
+   * @param groupName The group name
+   * @param calback The callback
+   */
   public onGroupMessage(groupName: string, calback: OnGroupMessageReceived) {
     let group = this.getOrAddGroup(groupName);
     group.callback = calback;
   }
 
+  private _state: WebPubSubClientState;
+  private _isStopped = false;
+  
   // connection lifetime
   private _socket?: WebSocket;
   private _uri?: string;
@@ -55,7 +92,17 @@ export class WebPubSubClient {
     return this._ackId;
   }
 
+  /**
+   * Create an instance of WebPubSubClient
+   * @param clientAccessUri The uri to connect
+   * @param options The client options
+   */
   constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
+  /**
+   * Create an instance of WebPubSubClient
+   * @param credential The credential to use when connecting
+   * @param options The client options
+   */
   constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions)
   constructor(credential: string | WebPubSubClientCredential, options?: WebPubSubClientOptions) {
     if (typeof credential == "string") {
@@ -79,6 +126,10 @@ export class WebPubSubClient {
     this._ackId = 0;
   }
 
+  /**
+   * Start to connect to the service.
+   * @param abortSignal The abort signal
+   */
   public async connect(abortSignal?: AbortSignalLike) : Promise<void> {
     if (this._isStopped) {
       console.error("Can't start a stopped client");
@@ -97,6 +148,9 @@ export class WebPubSubClient {
     await this.connectCore(this._uri);
   }
 
+  /**
+   * Stop the client. The stopped client can't use connect() to start again.
+   */
   public stop() {
     this._isStopped = true;
     if (this._socket) {
@@ -104,6 +158,15 @@ export class WebPubSubClient {
     }
   }
 
+  /**
+   * Send custom event to server
+   * @param eventName The event name
+   * @param content The data content
+   * @param dataType The data type
+   * @param ackId  The optional ackId. If not specified, client will generate one.
+   * @param options The options
+   * @param abortSignal The abort signal
+   */
   public async sendToServer(eventName: string,
      content: JSONTypes | ArrayBuffer,
      dataType: WebPubSubDataType,
@@ -136,6 +199,12 @@ export class WebPubSubClient {
       return await this.sendMessage(message, abortSignal);
   }
 
+  /**
+   * Join the client to group
+   * @param groupName The group name
+   * @param ackId The optional ackId. If not specified, client will generate one. 
+   * @param abortSignal The abort signal
+   */
   public async joinGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = true;
@@ -149,6 +218,12 @@ export class WebPubSubClient {
     }, ackId, abortSignal);
   }
 
+  /**
+   * Leave the client from group
+   * @param groupName The group name
+   * @param ackId The optional ackId. If not specified, client will generate one. 
+   * @param abortSignal The abort signal
+   */
   public async leaveGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = false;
@@ -162,6 +237,15 @@ export class WebPubSubClient {
     }, ackId, abortSignal);
   }
 
+  /**
+   * Send message to group.
+   * @param groupName The group name
+   * @param content The data content
+   * @param dataType The data type
+   * @param ackId The optional ackId. If not specified, client will generate one. 
+   * @param options The options
+   * @param abortSignal The abort signal
+   */
   public async sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer,
     dataType: WebPubSubDataType,
     ackId?: number,

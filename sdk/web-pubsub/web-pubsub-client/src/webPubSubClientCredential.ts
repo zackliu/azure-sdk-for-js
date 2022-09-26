@@ -1,44 +1,55 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 import { AbortSignalLike } from "@azure/abort-controller";
 
-export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>
+/**
+ * Type to be used to get clientAccessUri
+ */
+export type ClientAccessUriProvider = (abortSignal?: AbortSignalLike) => Promise<string>
 
+/**
+ * The WebPubSubClient credential
+ */
 export interface WebPubSubClientCredential {
 
     /**
-     * Gets an `AccessToken` for the user. Throws if already disposed.
+     * Gets an `getClientAccessUri` which is used in connecting to the service
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
     getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
+/**
+ * Default implementation of WebPubSubClientCredential
+ */
 export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
-  private readonly _tokenProvider: TokenProvider;
+  private readonly _clientAccessUriProvider: ClientAccessUriProvider;
   
     /**
-     * Creates an instance of CommunicationTokenCredential with a static token and no proactive refreshing.
-     * @param token - A user access token issued by Communication Services.
+     * Creates an instance of DefaultWebPubSubClientCredential with a static clientAccessUri and no proactive refreshing.
+     * @param clientAccessUri - The clientAccessUri to be used in connecting to the service
      */
-    constructor(token: string);
+    constructor(clientAccessUri: string);
     /**
-     * Creates an instance of CommunicationTokenCredential with a lambda to get a token and options
-     * to configure proactive refreshing.
-     * @param refreshOptions - Options to configure refresh and opt-in to proactive refreshing.
+     * Creates an instance of DefaultWebPubSubClientCredential with a lambda to get a clientAccessUri.
+     * @param clientAccessUriProvider - Lambda provider to proactively get clientAccessUri.
      */
-    constructor(tokenProvider: TokenProvider);
-    constructor(tokenProvider: string | TokenProvider) {
-      if (typeof tokenProvider === "string") {
-        this._tokenProvider = async _ => tokenProvider;
+    constructor(clientAccessUriProvider: ClientAccessUriProvider);
+    constructor(clientAccessUriProvider: string | ClientAccessUriProvider) {
+      if (typeof clientAccessUriProvider === "string") {
+        this._clientAccessUriProvider = async _ => clientAccessUriProvider;
       } else {
-        this._tokenProvider = tokenProvider;
+        this._clientAccessUriProvider = clientAccessUriProvider;
       }
     }
   
     /**
-     * Gets an `AccessToken` for the user. Throws if already disposed.
+     * Gets an `getClientAccessUri` which is used in connecting to the service
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
     public async getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string> {
-      const token = await this._tokenProvider(abortSignal);
+      const token = await this._clientAccessUriProvider(abortSignal);
       return token;
     }
 }
