@@ -12,13 +12,13 @@ import { CloseEvent } from 'ws';
 // @public (undocumented)
 export interface AckMessage extends WebPubSubMessage {
     // (undocumented)
-    ackId: bigint;
+    ackId: number;
     // (undocumented)
     error?: ErrorDetail;
     // (undocumented)
     success: boolean;
     // (undocumented)
-    readonly type: DownstreamMessageType.Ack;
+    readonly _type: DownstreamMessageType.Ack;
 }
 
 // @public (undocumented)
@@ -34,7 +34,7 @@ export interface ConnectedMessage extends WebPubSubMessage {
     // (undocumented)
     reconnectionToken: string;
     // (undocumented)
-    readonly type: DownstreamMessageType.Connected;
+    readonly _type: DownstreamMessageType.Connected;
     // (undocumented)
     userId: string;
 }
@@ -46,7 +46,7 @@ export interface DataMessage extends WebPubSubMessage {
     // (undocumented)
     dataType: WebPubSubDataType;
     // (undocumented)
-    sequenceId?: bigint;
+    sequenceId?: number;
 }
 
 // @public (undocumented)
@@ -59,23 +59,23 @@ export class DefaultWebPubSubClientCredential implements WebPubSubClientCredenti
 // @public (undocumented)
 export interface DisconnectedMessage extends WebPubSubMessage {
     // (undocumented)
-    reason: string;
+    message: string;
     // (undocumented)
-    readonly type: DownstreamMessageType.Disconnected;
+    readonly _type: DownstreamMessageType.Disconnected;
 }
 
 // @public (undocumented)
 export enum DownstreamMessageType {
     // (undocumented)
-    Ack = 1,
+    Ack = "Ack",
     // (undocumented)
-    Connected = 2,
+    Connected = "Connected",
     // (undocumented)
-    Disconnected = 3,
+    Disconnected = "Disconnected",
     // (undocumented)
-    GroupData = 4,
+    GroupData = "GroupData",
     // (undocumented)
-    ServerData = 5
+    ServerData = "ServerData"
 }
 
 // @public (undocumented)
@@ -93,27 +93,27 @@ export interface GroupDataMessage extends DataMessage {
     // (undocumented)
     group: string;
     // (undocumented)
-    readonly type: DownstreamMessageType.GroupData;
+    readonly _type: DownstreamMessageType.GroupData;
 }
 
 // @public (undocumented)
 export interface JoinGroupMessage extends WebPubSubMessage {
     // (undocumented)
-    ackId?: bigint;
+    ackId?: number;
     // (undocumented)
     group: string;
     // (undocumented)
-    readonly type: UpstreamMessageType.JoinGroup;
+    readonly _type: UpstreamMessageType.JoinGroup;
 }
 
 // @public (undocumented)
 export interface LeaveGroupMessage extends WebPubSubMessage {
     // (undocumented)
-    ackId?: bigint;
+    ackId?: number;
     // (undocumented)
     group: string;
     // (undocumented)
-    readonly type: UpstreamMessageType.LeaveGroup;
+    readonly _type: UpstreamMessageType.LeaveGroup;
 }
 
 // @public (undocumented)
@@ -165,15 +165,15 @@ export interface ReconnectionOptions {
 // @public (undocumented)
 export interface SendEventMessage extends WebPubSubMessage {
     // (undocumented)
-    ackId?: bigint;
+    ackId?: number;
     // (undocumented)
     data: any;
     // (undocumented)
     dataType: WebPubSubDataType;
     // (undocumented)
-    eventName: string;
+    event: string;
     // (undocumented)
-    readonly type: UpstreamMessageType.SendEvent;
+    readonly _type: UpstreamMessageType.SendEvent;
 }
 
 // @public (undocumented)
@@ -188,7 +188,7 @@ export class SendMessageError extends Error {
 // @public (undocumented)
 export interface SendToGroupMessage extends WebPubSubMessage {
     // (undocumented)
-    ackId?: bigint;
+    ackId?: number;
     // (undocumented)
     data: any;
     // (undocumented)
@@ -198,7 +198,7 @@ export interface SendToGroupMessage extends WebPubSubMessage {
     // (undocumented)
     noEcho: boolean;
     // (undocumented)
-    readonly type: UpstreamMessageType.SendToGroup;
+    readonly _type: UpstreamMessageType.SendToGroup;
 }
 
 // @public (undocumented)
@@ -218,15 +218,15 @@ export interface SendToServerOptions {
 // @public (undocumented)
 export interface SequenceAckMessage extends WebPubSubMessage {
     // (undocumented)
-    sequenceId: bigint;
+    sequenceId: number;
     // (undocumented)
-    readonly type: UpstreamMessageType.SequenceAck;
+    readonly _type: UpstreamMessageType.SequenceAck;
 }
 
 // @public (undocumented)
 export interface ServerDataMessage extends DataMessage {
     // (undocumented)
-    readonly type: DownstreamMessageType.ServerData;
+    readonly _type: DownstreamMessageType.ServerData;
 }
 
 // @public (undocumented)
@@ -235,15 +235,15 @@ export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>;
 // @public (undocumented)
 export enum UpstreamMessageType {
     // (undocumented)
-    JoinGroup = 1,
+    JoinGroup = "JoinGroup",
     // (undocumented)
-    LeaveGroup = 2,
+    LeaveGroup = "LeaveGroup",
     // (undocumented)
-    SendEvent = 4,
+    SendEvent = "SendEvent",
     // (undocumented)
-    SendToGroup = 3,
+    SendToGroup = "SendToGroup",
     // (undocumented)
-    SequenceAck = 5
+    SequenceAck = "SequenceAck"
 }
 
 // @public (undocumented)
@@ -253,9 +253,9 @@ export class WebPubSubClient {
     // (undocumented)
     connect(abortSignal?: AbortSignalLike): Promise<void>;
     // (undocumented)
-    joinGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult>;
+    joinGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
     // (undocumented)
-    leaveGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult>;
+    leaveGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
     // (undocumented)
     onConnected?: OnConnected;
     // (undocumented)
@@ -265,9 +265,9 @@ export class WebPubSubClient {
     // (undocumented)
     onMessage?: OnMessage;
     // (undocumented)
-    sendToGroup(groupName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: bigint, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
+    sendToGroup(groupName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     // (undocumented)
-    sendToServer(eventName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: bigint, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
+    sendToServer(eventName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     // (undocumented)
     stop(): void;
 }
@@ -298,13 +298,13 @@ export interface WebPubSubClientProtocol {
 // @public (undocumented)
 export enum WebPubSubDataType {
     // (undocumented)
-    Binary = 1,
+    Binary = "Binary",
     // (undocumented)
-    Json = 2,
+    Json = "Json",
     // (undocumented)
-    Protobuf = 4,
+    Protobuf = "Protobuf",
     // (undocumented)
-    Text = 3
+    Text = "Text"
 }
 
 // @public (undocumented)
@@ -320,9 +320,21 @@ export class WebPubSubJsonProtocol implements WebPubSubClientProtocol {
 }
 
 // @public (undocumented)
+export class WebPubSubJsonReliableProtocol implements WebPubSubClientProtocol {
+    // (undocumented)
+    isReliableSubProtocol: boolean;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    parseMessages(input: string): WebPubSubMessage;
+    // (undocumented)
+    writeMessage(message: WebPubSubMessage): string;
+}
+
+// @public (undocumented)
 export interface WebPubSubMessage {
     // (undocumented)
-    type: DownstreamMessageType | UpstreamMessageType;
+    _type: DownstreamMessageType | UpstreamMessageType;
 }
 
 // (No @packageDocumentation comment for this package)

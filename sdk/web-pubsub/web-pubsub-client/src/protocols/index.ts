@@ -26,3 +26,4 @@ export interface WebPubSubClientProtocol {
 }
 
 export * from "./webPubSubJsonProtocol"
+export * from "./webPubSubJsonReliableProtocol"

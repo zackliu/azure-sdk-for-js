@@ -1873,6 +1873,7 @@ packages:
   /@opentelemetry/sdk-metrics-base/0.30.0_@opentelemetry+api@1.1.0:
     resolution: {integrity: sha512-3BDg1MYDInDyGvy+bSH8OuCX5nsue7omH6Y2eidCGTTDYRPxDmq9tsRJxnTUepoMAvWX+1sTwZ4JqTFmc1z8Mw==}
     engines: {node: '>=14'}
+    deprecated: Please use @opentelemetry/sdk-metrics
     peerDependencies:
       '@opentelemetry/api': ^1.0.0
     dependencies:
@@ -3155,6 +3156,10 @@ packages:
     engines: {node: ^4.5.0 || >= 5.9}
     dev: false
 
+  /bignumber.js/9.1.0:
+    resolution: {integrity: sha512-4LwHK4nfDOraBCtst+wOWIHbu1vhvAPJK8g8nROd4iuc3PSEjWif/qwbkh8jwCJz6yDBvtU4KPynETgrfh7y3A==}
+    dev: false
+
   /binary-extensions/2.2.0:
     resolution: {integrity: sha512-jDctJ/IVQbZoJykoeHbhXpOlNBqGNcwXJKJog42E5HDPUwQTSdjCHdihjj0DlnheQ7blbT6dHOafNAiS8ooQKA==}
     engines: {node: '>=8'}
@@ -3900,7 +3905,7 @@ packages:
     dependencies:
       semver: 7.3.7
       shelljs: 0.8.5
-      typescript: 4.9.0-dev.20220923
+      typescript: 4.9.0-dev.20220925
     dev: false
 
   /downlevel-dts/0.4.0:
@@ -5765,6 +5770,12 @@ packages:
     resolution: {integrity: sha512-OYu7XEzjkCQ3C5Ps3QIZsQfNpqoJyZZA99wd9aWd05NCtC5pWOkShK2mkL6HXQR6/Cy2lbNdPlZBpuQHXE63gA==}
     engines: {node: '>=4'}
     hasBin: true
+    dev: false
+
+  /json-bigint/1.0.0:
+    resolution: {integrity: sha512-SiPv/8VpZuWbvLSMtTDU8hEfrZWg/mH/nV/b4o0CYbSxu1UIQPLdwKOCIyLQX+VIPO5vrLX3i8qtqFyhdPSUSQ==}
+    dependencies:
+      bignumber.js: 9.1.0
     dev: false
 
   /json-parse-better-errors/1.0.2:
@@ -8648,8 +8659,8 @@ packages:
     hasBin: true
     dev: false
 
-  /typescript/4.9.0-dev.20220923:
-    resolution: {integrity: sha512-BaTN9dPBZugYsJFXtoEFz85E7WsalhCrJT3IcrGj+d3LVrwVCOqiFxY/uNfhWkvJ4apXqjQrgiXiYxtPL/TKSw==}
+  /typescript/4.9.0-dev.20220925:
+    resolution: {integrity: sha512-BP64uQUzo4GtCwE/1wGfSAn7EyPs1JxjvbkJdfEsj9KGizzUN99u8VrWFOxnqA4PzWFIA/KzE4PQHXkRPfoeRg==}
     engines: {node: '>=4.2.0'}
     hasBin: true
     dev: false
@@ -18507,7 +18518,7 @@ packages:
     dev: false
 
   file:projects/web-pubsub-client.tgz:
-    resolution: {integrity: sha512-/6229hOKgrsHo9MxuVXx/nMJxHrjhmOym13qiS25HPse5Az9baM38KKJSztfC3jbD8C88EBYHrQGduSGAdD8RA==, tarball: file:projects/web-pubsub-client.tgz}
+    resolution: {integrity: sha512-skfxkA93nGAFtJW49e207vUozmBkHAjEqB79pq/9pVU9aJXGKOdQVioOwgpZjMSCTL/o/CJCZ2ekCoYn1ZkdBQ==, tarball: file:projects/web-pubsub-client.tgz}
     name: '@rush-temp/web-pubsub-client'
     version: 0.0.0
     dependencies:
@@ -18528,6 +18539,7 @@ packages:
       eslint: 8.20.0
       esm: 3.2.25
       express: 4.18.1
+      json-bigint: 1.0.0
       karma: 6.4.0
       karma-chrome-launcher: 3.1.1
       karma-coverage: 2.2.0

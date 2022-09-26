@@ -7,7 +7,7 @@ import { SendMessageError } from "./errors";
 import { AckResult, OnConnectedArgs, OnDataMessageArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
 import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage } from "./models/messages";
 import { WebPubSubClientProtocol } from "./protocols";
-import { WebPubSubJsonProtocol } from "./protocols/webPubSubJsonProtocol";
+import { WebPubSubJsonReliableProtocol } from "./protocols/webPubSubJsonReliableProtocol";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
 
 export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
@@ -23,7 +23,7 @@ export class WebPubSubClient {
   private readonly _credential: WebPubSubClientCredential;
   private readonly _options: WebPubSubClientOptions;
   private readonly _groupMap: Map<string, WebPubSubGroup>;
-  private readonly _ackMap: Map<bigint, AckEntity>;
+  private readonly _ackMap: Map<number, AckEntity>;
   private readonly _sequenceId: SequenceId;
 
   // client lifetime
@@ -45,11 +45,11 @@ export class WebPubSubClient {
   private _connectionId?: string;
   private _reconnectionToken?: string;
   private _isInitialConnected = false;
-  private _ackId: bigint;
+  private _ackId: number;
   private _sequenceAckTask?: AbortableTask;
 
   private nextAckId() {
-    this._ackId = this._ackId + BigInt(1);
+    this._ackId = this._ackId + 1;
     return this._ackId;
   }
 
@@ -70,11 +70,11 @@ export class WebPubSubClient {
 
     this._protocol = this._options.protocol;
     this._groupMap = new Map<string, WebPubSubGroup>();
-    this._ackMap = new Map<bigint, AckEntity>();
+    this._ackMap = new Map<number, AckEntity>();
     this._sequenceId = new SequenceId();
 
     this._state = WebPubSubClientState.Disconnected;
-    this._ackId = BigInt(0);
+    this._ackId = 0;
   }
 
   public async connect(abortSignal?: AbortSignalLike) : Promise<void> {
@@ -91,8 +91,8 @@ export class WebPubSubClient {
 
     console.info("Staring a new connection");
 
-    let uri = await this._credential.getClientAccessUri(abortSignal);
-    await this.connectCore(uri);
+    this._uri = await this._credential.getClientAccessUri(abortSignal);
+    await this.connectCore(this._uri);
   }
 
   public stop() {
@@ -105,7 +105,7 @@ export class WebPubSubClient {
   public async sendToServer(eventName: string,
      content: string | ArrayBuffer,
      dataType: WebPubSubDataType,
-     ackId?: bigint,
+     ackId?: number,
      options?: SendToServerOptions,
      abortSignal?: AbortSignalLike): Promise<void|AckResult> {
       if (options == null) {
@@ -115,26 +115,26 @@ export class WebPubSubClient {
       if (!options.fireAndForget) {
         return await this.sendMessageWithAckId(id => {
           return {
-            type: UpstreamMessageType.SendEvent,
+            _type: UpstreamMessageType.SendEvent,
             dataType: dataType,
             data: content,
             ackId: id,
-            eventName: eventName
+            event: eventName
           } as SendEventMessage;
         }, ackId, abortSignal); 
       };
 
       const message =  {
-        type: UpstreamMessageType.SendEvent,
+        _type: UpstreamMessageType.SendEvent,
         dataType: dataType,
         data: content,
-        eventName: eventName
+        event: eventName
       } as SendEventMessage
 
       return await this.sendMessage(message, abortSignal);
   }
 
-  public async joinGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
+  public async joinGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = true;
 
@@ -142,12 +142,12 @@ export class WebPubSubClient {
       return {
         group: groupName,
         ackId: id,
-        type: UpstreamMessageType.JoinGroup
+        _type: UpstreamMessageType.JoinGroup
       } as JoinGroupMessage;
     }, ackId, abortSignal);
   }
 
-  public async leaveGroup(groupName: string, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
+  public async leaveGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = false;
 
@@ -155,14 +155,14 @@ export class WebPubSubClient {
       return {
         group: groupName,
         ackId: id,
-        type: UpstreamMessageType.LeaveGroup
+        _type: UpstreamMessageType.LeaveGroup
       } as LeaveGroupMessage;
     }, ackId, abortSignal);
   }
 
   public async sendToGroup(groupName: string, content: string | ArrayBuffer,
     dataType: WebPubSubDataType,
-    ackId?: bigint,
+    ackId?: number,
     options?: SendToGroupOptions,
     abortSignal?: AbortSignalLike): Promise<void|AckResult> {
       if (options == null) {
@@ -174,7 +174,7 @@ export class WebPubSubClient {
       if (!options.fireAndForget) {
         return await this.sendMessageWithAckId(id => {
           return {
-            type: UpstreamMessageType.SendToGroup,
+            _type: UpstreamMessageType.SendToGroup,
             group: groupName,
             dataType: dataType,
             data: content,
@@ -185,7 +185,7 @@ export class WebPubSubClient {
       };
 
       const message =  {
-        type: UpstreamMessageType.SendToGroup,
+        _type: UpstreamMessageType.SendToGroup,
         group: groupName,
         dataType: dataType,
         data: content,
@@ -199,10 +199,7 @@ export class WebPubSubClient {
     return new Promise<void>((resolve, reject) => {
       let socket = new WebSocket(uri, this._protocol.name);
 
-      socket = new WebSocket(uri, this._protocol.name);
-
       socket.onopen = _ => {
-        console.log("connection is opened");
         this._socket = socket;
         this._state = WebPubSubClientState.Connected;
         if (this._sequenceAckTask != null) {
@@ -212,7 +209,7 @@ export class WebPubSubClient {
           let [isUpdated, seqId] = this._sequenceId.tryGetSequenceId();
           if (isUpdated) {
             const message: SequenceAckMessage = {
-              type: UpstreamMessageType.SequenceAck,
+              _type: UpstreamMessageType.SequenceAck,
               sequenceId: seqId!
             }
             await this.sendMessage(message);
@@ -236,110 +233,111 @@ export class WebPubSubClient {
           this._lastCloseEvent = e;
           if (e.code == 1008) {
             console.warn("The websocket close with status code 1008. Stop recovery.");
-            this.raiseClose();
+            this.raiseClose.call(this);
           } else {
-            this.tryRecovery();
+            this.tryRecovery.call(this);
           }
         } else {
           reject(e.reason);
         }
       }
 
-      socket.onmessage = this.onmessage;
+      socket.onmessage = (event: MessageEvent) => {
+        console.log(`Received message: ${JSON.stringify(event.data)}`);
+
+        const handleAck = (message: AckMessage): void => {
+          if (this._ackMap.has(message.ackId)) {
+            let entity = this._ackMap.get(message.ackId)!;
+            if (message.success || (message.error && message.error.name == "Duplicate")) {
+              entity.resolve({ack: message});
+            } else {
+              entity.reject(new SendMessageError("Failed to send message.", message));
+            }
+          }
+        };
+
+        const handleConnected = async (message: ConnectedMessage): Promise<void> => {
+          this._connectionId = message.connectionId;
+          this._reconnectionToken = message.reconnectionToken;
+      
+          if (!this._isInitialConnected) {
+            this._isInitialConnected = true;
+            if (this.onConnected != null) {
+              await this.onConnected({message: message});
+            }
+          }
+        };
+
+        const handleDisconnected = (message: DisconnectedMessage): void => {
+          this._lastDisconnectedMessage = message;
+        }
+
+        const handleGroupData = async (message: GroupDataMessage): Promise<void> => {
+          if (message.sequenceId != null) {
+            if (!this._sequenceId.tryUpdate(message.sequenceId))
+            {
+              // drop duplicated message
+              return;
+            }
+          }
+          if (this._groupMap.has(message.group)) {
+            let group = this._groupMap.get(message.group)
+            if (group?.callback != null) {
+              await group.callback({message: message});
+            }
+          }
+          if (this.onMessage != null) {
+            await this.onMessage({message: message});
+          }
+        }
+
+        const handleServerData = async (message: ServerDataMessage): Promise<void> => {
+          if (message.sequenceId != null) {
+            if (!this._sequenceId.tryUpdate(message.sequenceId))
+            {
+              // drop duplicated message
+              return;
+            }
+          }
+          if (this.onMessage != null) {
+            await this.onMessage({message: message});
+          }
+        }
+
+        let data = event.data;
+        let convertedData : Buffer | ArrayBuffer | string;
+        if (Array.isArray(data)) {
+          convertedData = Buffer.concat(data);
+        } else {
+          convertedData = data;
+        }
+    
+        let message = this._protocol.parseMessages(convertedData);
+        switch (message._type) {
+          case DownstreamMessageType.Ack: {
+            handleAck(message as AckMessage);
+            break;
+          }
+          case DownstreamMessageType.Connected: {
+            handleConnected(message as ConnectedMessage);
+            break;
+          }
+          case DownstreamMessageType.Disconnected: {
+            handleDisconnected(message as DisconnectedMessage);
+            break;
+          }
+          case DownstreamMessageType.GroupData: {
+            handleGroupData(message as GroupDataMessage);
+            break;
+          }
+          case DownstreamMessageType.ServerData: {
+            handleServerData(message as ServerDataMessage);
+            break;
+          }
+        }
+      };
       socket.binaryType = "arraybuffer";
     });
-  }
-
-  private onmessage(event: MessageEvent) {
-    let data = event.data;
-    let convertedData : Buffer | ArrayBuffer | string;
-    if (Array.isArray(data)) {
-      convertedData = Buffer.concat(data);
-    } else {
-      convertedData = data;
-    }
-
-    let message = this._protocol.parseMessages(convertedData);
-    switch (message.type) {
-      case DownstreamMessageType.Ack: {
-        this.handleAck(message as AckMessage);
-        break;
-      }
-      case DownstreamMessageType.Connected: {
-        this.handleConnected(message as ConnectedMessage);
-        break;
-      }
-      case DownstreamMessageType.Disconnected: {
-        this.handleDisconnected(message as DisconnectedMessage);
-        break;
-      }
-      case DownstreamMessageType.GroupData: {
-        this.handleGroupData(message as GroupDataMessage);
-        break;
-      }
-      case DownstreamMessageType.ServerData: {
-        this.handleServerData(message as ServerDataMessage);
-        break;
-      }
-    }
-  }
-
-  private async handleConnected(message: ConnectedMessage): Promise<void> {
-    this._connectionId = message.connectionId;
-    this._reconnectionToken = message.reconnectionToken;
-
-    if (!this._isInitialConnected) {
-      this._isInitialConnected = true;
-      if (this.onConnected != null) {
-        await this.onConnected({message: message});
-      }
-    }
-  }
-
-  private handleDisconnected(message: DisconnectedMessage): void {
-    this._lastDisconnectedMessage = message;
-  }
-
-  private async handleGroupData(message: GroupDataMessage): Promise<void> {
-    if (message.sequenceId != null) {
-      if (!this._sequenceId.tryUpdate(message.sequenceId))
-      {
-        // drop duplicated message
-        return;
-      }
-    }
-    
-    if (this._groupMap.has(message.group)) {
-      let group = this._groupMap.get(message.group)
-      if (group?.callback != null) {
-        await group.callback({message: message});
-      }
-    }
-  }
-
-  private async handleServerData(message: ServerDataMessage): Promise<void> {
-    if (message.sequenceId != null) {
-      if (!this._sequenceId.tryUpdate(message.sequenceId))
-      {
-        // drop duplicated message
-        return;
-      }
-    }
-
-    if (this.onMessage != null) {
-      await this.onMessage({message: message});
-    }
-  }
-
-  private handleAck(message: AckMessage): void {
-    if (this._ackMap.has(message.ackId)) {
-      let entity = this._ackMap.get(message.ackId)!;
-      if (message.success || (message.error && message.error.name == "Duplicate")) {
-        entity.resolve({ack: message});
-      } else {
-        entity.reject(new SendMessageError("Failed to send message.", message));
-      }
-    }
   }
 
   private async raiseClose(): Promise<void> {
@@ -349,6 +347,7 @@ export class WebPubSubClient {
   }
 
   private async sendMessage(message: WebPubSubMessage, abortSignal?: AbortSignalLike): Promise<void> {
+    console.log(`Sending message: ${JSON.stringify(message)}`);
     let payload = this._protocol.writeMessage(message);
 
     if (this._socket == null || this._socket.readyState != WebSocket.OPEN) {
@@ -357,7 +356,7 @@ export class WebPubSubClient {
     await sendAsync(this._socket, payload, abortSignal);
   }
 
-  private async sendMessageWithAckId(messageProvider: (ackId: bigint) => WebPubSubMessage, ackId?: bigint, abortSignal?: AbortSignalLike): Promise<AckResult> {
+  private async sendMessageWithAckId(messageProvider: (ackId: number) => WebPubSubMessage, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult> {
     if (ackId == null) {
       ackId = this.nextAckId();
     }
@@ -396,7 +395,7 @@ export class WebPubSubClient {
     // Build recovery uri
     let recoveryUri = this.buildRecoveryUri();
     if (!recoveryUri) {
-      console.warn("Connection id or reonnection token is not availble");
+      console.warn("Connection id or reconnection token is not available");
       this.raiseClose();
       return;
     }
@@ -405,7 +404,7 @@ export class WebPubSubClient {
     let timeout = delay(30 * 1000).then(() => abortSignal.onabort) // 30s
     while (timeout) {
       try {
-        await this.connectCore(recoveryUri);
+        await this.connectCore.call(this, recoveryUri);
         return;
       } catch {
         await delay(1000);
@@ -416,7 +415,7 @@ export class WebPubSubClient {
 
   private buildDefaultOptions(): WebPubSubClientOptions {
     return <WebPubSubClientOptions> {
-      protocol: new WebPubSubJsonProtocol(),
+      protocol: new WebPubSubJsonReliableProtocol(),
       reconnectionOptions: <ReconnectionOptions> {
         autoReconnect: true,
         autoRejoinGroups: true,
@@ -521,15 +520,15 @@ class Deferred<T> {
 }
 
 class SequenceId {
-  private _sequenceId: bigint;
+  private _sequenceId: number;
   private _isUpdate: boolean;
 
   constructor() {
-    this._sequenceId = BigInt(0);
+    this._sequenceId = 0;
     this._isUpdate = false;
   }
 
-  tryUpdate(sequenceId: bigint): boolean {
+  tryUpdate(sequenceId: number): boolean {
     this._isUpdate = true;
     if (sequenceId > this._sequenceId) {
       this._sequenceId = sequenceId;
@@ -538,8 +537,9 @@ class SequenceId {
     return false;
   }
 
-  tryGetSequenceId(): [boolean, bigint|null] {
+  tryGetSequenceId(): [boolean, number|null] {
     if (this._isUpdate) {
+      this._isUpdate = false;
       return [true, this._sequenceId];
     }
 

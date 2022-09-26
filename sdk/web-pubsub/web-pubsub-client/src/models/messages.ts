@@ -1,26 +1,26 @@
 export interface WebPubSubMessage {
-  type: DownstreamMessageType | UpstreamMessageType
+  _type: DownstreamMessageType | UpstreamMessageType
 }
 
 export enum DownstreamMessageType {
-  Ack = 1,
-  Connected = 2,
-  Disconnected = 3,
-  GroupData = 4,
-  ServerData = 5,
+  Ack = 'Ack',
+  Connected = 'Connected',
+  Disconnected = 'Disconnected',
+  GroupData = 'GroupData',
+  ServerData = 'ServerData',
 }
 
 export enum UpstreamMessageType {
-  JoinGroup = 1,
-  LeaveGroup = 2,
-  SendToGroup = 3,
-  SendEvent = 4,
-  SequenceAck = 5,
+  JoinGroup = 'JoinGroup',
+  LeaveGroup = 'LeaveGroup',
+  SendToGroup = 'SendToGroup',
+  SendEvent = 'SendEvent',
+  SequenceAck = 'SequenceAck',
 }
 
 export interface AckMessage extends WebPubSubMessage {
-  readonly type: DownstreamMessageType.Ack;
-  ackId: bigint;
+  readonly _type: DownstreamMessageType.Ack;
+  ackId: number;
   success: boolean;
   error?: ErrorDetail;
 }
@@ -31,70 +31,70 @@ export interface ErrorDetail {
 }
 
 export interface ConnectedMessage extends WebPubSubMessage {
-  readonly type: DownstreamMessageType.Connected;
+  readonly _type: DownstreamMessageType.Connected;
   connectionId: string;
   userId: string;
   reconnectionToken: string;
 }
 
 export interface DisconnectedMessage extends WebPubSubMessage {
-  readonly type: DownstreamMessageType.Disconnected;
-  reason: string;
+  readonly _type: DownstreamMessageType.Disconnected;
+  message: string;
 }
 
 export interface DataMessage extends WebPubSubMessage {
   dataType: WebPubSubDataType;
   data: any;
-  sequenceId?: bigint;
+  sequenceId?: number;
 }
 
 export interface GroupDataMessage extends DataMessage {
-  readonly type: DownstreamMessageType.GroupData;
+  readonly _type: DownstreamMessageType.GroupData;
   group: string;
   fromUserId: string;
 }
 
 export interface ServerDataMessage extends DataMessage {
-  readonly type: DownstreamMessageType.ServerData;
+  readonly _type: DownstreamMessageType.ServerData;
 }
 
 export interface JoinGroupMessage extends WebPubSubMessage {
-  readonly type: UpstreamMessageType.JoinGroup;
+  readonly _type: UpstreamMessageType.JoinGroup;
   group: string;
-  ackId?: bigint;
+  ackId?: number;
 }
 
 export interface LeaveGroupMessage extends WebPubSubMessage {
-  readonly type: UpstreamMessageType.LeaveGroup;
+  readonly _type: UpstreamMessageType.LeaveGroup;
   group: string;
-  ackId?: bigint;
+  ackId?: number;
 }
 
 export interface SendEventMessage extends WebPubSubMessage {
-  readonly type: UpstreamMessageType.SendEvent;
-  ackId?: bigint;
+  readonly _type: UpstreamMessageType.SendEvent;
+  ackId?: number;
   dataType: WebPubSubDataType;
   data: any;
-  eventName: string;
+  event: string;
 }
 
 export interface SendToGroupMessage extends WebPubSubMessage {
-  readonly type: UpstreamMessageType.SendToGroup;
+  readonly _type: UpstreamMessageType.SendToGroup;
   group: string;
-  ackId?: bigint;
+  ackId?: number;
   dataType: WebPubSubDataType;
   data: any;
   noEcho: boolean;
 }
 
 export interface SequenceAckMessage extends WebPubSubMessage {
-  readonly type: UpstreamMessageType.SequenceAck;
-  sequenceId: bigint;
+  readonly _type: UpstreamMessageType.SequenceAck;
+  sequenceId: number;
 }
 
 export enum WebPubSubDataType {
-  Binary = 1,
-  Json = 2,
-  Text = 3,
-  Protobuf = 4,
+  Binary = 'Binary',
+  Json = 'Json',
+  Text = 'Text',
+  Protobuf = 'Protobuf',
 }
