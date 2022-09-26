@@ -5,10 +5,12 @@ import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { SendMessageError } from "./errors";
 import { AckResult, OnConnectedArgs, OnDataMessageArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
-import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage } from "./models/messages";
+import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
 import { WebPubSubClientProtocol } from "./protocols";
 import { WebPubSubJsonReliableProtocol } from "./protocols/webPubSubJsonReliableProtocol";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
+
+export type JSONTypes = string | number | boolean | object;
 
 export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
 
@@ -103,7 +105,7 @@ export class WebPubSubClient {
   }
 
   public async sendToServer(eventName: string,
-     content: string | ArrayBuffer,
+     content: JSONTypes | ArrayBuffer,
      dataType: WebPubSubDataType,
      ackId?: number,
      options?: SendToServerOptions,
@@ -160,7 +162,7 @@ export class WebPubSubClient {
     }, ackId, abortSignal);
   }
 
-  public async sendToGroup(groupName: string, content: string | ArrayBuffer,
+  public async sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer,
     dataType: WebPubSubDataType,
     ackId?: number,
     options?: SendToGroupOptions,
@@ -243,7 +245,7 @@ export class WebPubSubClient {
       }
 
       socket.onmessage = (event: MessageEvent) => {
-        console.log(`Received message: ${JSON.stringify(event.data)}`);
+        // console.log(`Received message: ${JSON.stringify(event.data)}`);
 
         const handleAck = (message: AckMessage): void => {
           if (this._ackMap.has(message.ackId)) {
@@ -347,7 +349,7 @@ export class WebPubSubClient {
   }
 
   private async sendMessage(message: WebPubSubMessage, abortSignal?: AbortSignalLike): Promise<void> {
-    console.log(`Sending message: ${JSON.stringify(message)}`);
+    // console.log(`Sending message: ${JSON.stringify(message)}`);
     let payload = this._protocol.writeMessage(message);
 
     if (this._socket == null || this._socket.readyState != WebSocket.OPEN) {

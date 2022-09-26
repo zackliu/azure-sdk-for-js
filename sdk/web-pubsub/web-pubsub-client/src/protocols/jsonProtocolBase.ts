@@ -1,4 +1,5 @@
 import { AckMessage, ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, JoinGroupMessage, LeaveGroupMessage, SendEventMessage, SendToGroupMessage, SequenceAckMessage, ServerDataMessage, UpstreamMessageType, WebPubSubDataType, WebPubSubMessage } from "../models/messages";
+import { JSONTypes } from "../webPubSubClient";
 
 export function parseMessages(input: string): WebPubSubMessage {
   // The interface does allow "ArrayBuffer" to be passed in, but this implementation does not. So let's throw a useful error.
@@ -24,9 +25,14 @@ export function parseMessages(input: string): WebPubSubMessage {
     }
   } else if (typedMessage.type == "message") {
     if (typedMessage.from == "group") {
-      returnMessage = {...parsedMessage, _type:DownstreamMessageType.GroupData} as GroupDataMessage;
+      let data = parsePayload(parsedMessage.data, parsedMessage.dataType as WebPubSubDataType);
+      returnMessage = {...parsedMessage, data: data, _type:DownstreamMessageType.GroupData
+      } as GroupDataMessage;
     } else if (typedMessage.from == "server") {
-      returnMessage = {...parsedMessage, _type:DownstreamMessageType.ServerData} as ServerDataMessage;
+      let data = parsePayload(parsedMessage.data, parsedMessage.dataType as WebPubSubDataType);
+      returnMessage = {
+        ...parsedMessage, data: data, _type:DownstreamMessageType.ServerData
+      } as ServerDataMessage;
     } else {
       throw new Error();
     }
@@ -103,7 +109,7 @@ class SendToGroupData {
     this.group = message.group;
     this.ackId = message.ackId;
     this.dataType = message.dataType;
-    this.data = message.data;
+    this.data = getPayload(message.data, message.dataType);
     this.noEcho = message.noEcho
   }
 }
@@ -118,7 +124,7 @@ class SendEventData {
   constructor(message: SendEventMessage) {
     this.ackId = message.ackId;
     this.dataType = message.dataType;
-    this.data = message.data;
+    this.data = getPayload(message.data, message.dataType);
     this.event = message.event;
   }
 }
@@ -129,5 +135,42 @@ class SequenceAckData {
 
   constructor(message: SequenceAckMessage) {
     this.sequenceId = message.sequenceId;
+  }
+}
+
+function getPayload(data: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType): any {
+  switch(dataType) {
+    case WebPubSubDataType.Text: {
+      if (typeof data !== "string") {
+        throw new TypeError("Message must be a string.");
+      }
+      return data
+    }
+    case WebPubSubDataType.Json: {
+      return JSON.stringify(data)
+    }
+    case WebPubSubDataType.Binary:
+    case WebPubSubDataType.Protobuf: {
+      if (data instanceof ArrayBuffer) {
+        return Buffer.from(data).toString('base64')
+      }
+      throw new TypeError("Message must be a ArrayBuffer");
+    }
+  }
+}
+
+function parsePayload(data: any, dataType: string): JSONTypes | ArrayBuffer {
+  if (dataType == "text") {
+    if (typeof data !== "string") {
+      throw new TypeError("Message must be a string when dataType is text");
+    }
+    return data as string;
+  } else if (dataType == "json") {
+    return data as JSONTypes;
+  } else if (dataType == "binary" || dataType == "protobuf") {
+    let buf = Buffer.from(data as string, 'base64');
+      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+  } else {
+    throw new TypeError(`Unsupported dataType: ${dataType}`);
   }
 }

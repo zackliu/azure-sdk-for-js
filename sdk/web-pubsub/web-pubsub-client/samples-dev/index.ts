@@ -13,7 +13,11 @@ async function main() {
   }
 
   client.onMessage = async e => {
-    console.log(`Received message ${e.message.data}`);
+    if (e.message.data instanceof ArrayBuffer) {
+      console.log(`Received message ${Buffer.from(e.message.data).toString('base64')}`);
+    } else {
+      console.log(`Received message ${e.message.data}`);  
+    }
   }
 
   client.onDisconnected = async e => {
@@ -24,6 +28,11 @@ async function main() {
 
   await client.joinGroup("testGroup");
   await client.sendToGroup("testGroup", "hello world", WebPubSubDataType.Text);
+  await client.sendToGroup("testGroup", {a: 12, b: "hello"}, WebPubSubDataType.Json);
+  await client.sendToGroup("testGroup", "hello json", WebPubSubDataType.Json);
+  var buf = Buffer.from('aGVsbG9w', 'base64');
+  await client.sendToGroup("testGroup", buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), WebPubSubDataType.Binary);
+  console.log("Sent message");
   await delay(100000);
 }
 

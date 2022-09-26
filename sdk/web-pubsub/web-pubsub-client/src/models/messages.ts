@@ -1,21 +1,23 @@
+import { JSONTypes } from "../webPubSubClient";
+
 export interface WebPubSubMessage {
   _type: DownstreamMessageType | UpstreamMessageType
 }
 
 export enum DownstreamMessageType {
-  Ack = 'Ack',
-  Connected = 'Connected',
-  Disconnected = 'Disconnected',
-  GroupData = 'GroupData',
-  ServerData = 'ServerData',
+  Ack = 'ack',
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  GroupData = 'groupData',
+  ServerData = 'serverData',
 }
 
 export enum UpstreamMessageType {
-  JoinGroup = 'JoinGroup',
-  LeaveGroup = 'LeaveGroup',
-  SendToGroup = 'SendToGroup',
-  SendEvent = 'SendEvent',
-  SequenceAck = 'SequenceAck',
+  JoinGroup = 'joinGroup',
+  LeaveGroup = 'leaveGroup',
+  SendToGroup = 'sendToGroup',
+  SendEvent = 'sendEvent',
+  SequenceAck = 'sequenceAck',
 }
 
 export interface AckMessage extends WebPubSubMessage {
@@ -44,7 +46,7 @@ export interface DisconnectedMessage extends WebPubSubMessage {
 
 export interface DataMessage extends WebPubSubMessage {
   dataType: WebPubSubDataType;
-  data: any;
+  data: JSONTypes | ArrayBuffer;
   sequenceId?: number;
 }
 
@@ -74,7 +76,7 @@ export interface SendEventMessage extends WebPubSubMessage {
   readonly _type: UpstreamMessageType.SendEvent;
   ackId?: number;
   dataType: WebPubSubDataType;
-  data: any;
+  data: JSONTypes | ArrayBuffer;
   event: string;
 }
 
@@ -83,7 +85,7 @@ export interface SendToGroupMessage extends WebPubSubMessage {
   group: string;
   ackId?: number;
   dataType: WebPubSubDataType;
-  data: any;
+  data: JSONTypes | ArrayBuffer;
   noEcho: boolean;
 }
 
@@ -93,8 +95,8 @@ export interface SequenceAckMessage extends WebPubSubMessage {
 }
 
 export enum WebPubSubDataType {
-  Binary = 'Binary',
-  Json = 'Json',
-  Text = 'Text',
-  Protobuf = 'Protobuf',
+  Binary = 'binary',
+  Json = 'json',
+  Text = 'text',
+  Protobuf = 'protobuf',
 }

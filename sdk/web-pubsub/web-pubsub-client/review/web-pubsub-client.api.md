@@ -42,7 +42,7 @@ export interface ConnectedMessage extends WebPubSubMessage {
 // @public (undocumented)
 export interface DataMessage extends WebPubSubMessage {
     // (undocumented)
-    data: any;
+    data: JSONTypes | ArrayBuffer;
     // (undocumented)
     dataType: WebPubSubDataType;
     // (undocumented)
@@ -67,15 +67,15 @@ export interface DisconnectedMessage extends WebPubSubMessage {
 // @public (undocumented)
 export enum DownstreamMessageType {
     // (undocumented)
-    Ack = "Ack",
+    Ack = "ack",
     // (undocumented)
-    Connected = "Connected",
+    Connected = "connected",
     // (undocumented)
-    Disconnected = "Disconnected",
+    Disconnected = "disconnected",
     // (undocumented)
-    GroupData = "GroupData",
+    GroupData = "groupData",
     // (undocumented)
-    ServerData = "ServerData"
+    ServerData = "serverData"
 }
 
 // @public (undocumented)
@@ -105,6 +105,9 @@ export interface JoinGroupMessage extends WebPubSubMessage {
     // (undocumented)
     readonly _type: UpstreamMessageType.JoinGroup;
 }
+
+// @public (undocumented)
+export type JSONTypes = string | number | boolean | object;
 
 // @public (undocumented)
 export interface LeaveGroupMessage extends WebPubSubMessage {
@@ -167,7 +170,7 @@ export interface SendEventMessage extends WebPubSubMessage {
     // (undocumented)
     ackId?: number;
     // (undocumented)
-    data: any;
+    data: JSONTypes | ArrayBuffer;
     // (undocumented)
     dataType: WebPubSubDataType;
     // (undocumented)
@@ -190,7 +193,7 @@ export interface SendToGroupMessage extends WebPubSubMessage {
     // (undocumented)
     ackId?: number;
     // (undocumented)
-    data: any;
+    data: JSONTypes | ArrayBuffer;
     // (undocumented)
     dataType: WebPubSubDataType;
     // (undocumented)
@@ -235,15 +238,15 @@ export type TokenProvider = (abortSignal?: AbortSignalLike) => Promise<string>;
 // @public (undocumented)
 export enum UpstreamMessageType {
     // (undocumented)
-    JoinGroup = "JoinGroup",
+    JoinGroup = "joinGroup",
     // (undocumented)
-    LeaveGroup = "LeaveGroup",
+    LeaveGroup = "leaveGroup",
     // (undocumented)
-    SendEvent = "SendEvent",
+    SendEvent = "sendEvent",
     // (undocumented)
-    SendToGroup = "SendToGroup",
+    SendToGroup = "sendToGroup",
     // (undocumented)
-    SequenceAck = "SequenceAck"
+    SequenceAck = "sequenceAck"
 }
 
 // @public (undocumented)
@@ -265,9 +268,9 @@ export class WebPubSubClient {
     // (undocumented)
     onMessage?: OnMessage;
     // (undocumented)
-    sendToGroup(groupName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
+    sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     // (undocumented)
-    sendToServer(eventName: string, content: string | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
+    sendToServer(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     // (undocumented)
     stop(): void;
 }
@@ -298,13 +301,13 @@ export interface WebPubSubClientProtocol {
 // @public (undocumented)
 export enum WebPubSubDataType {
     // (undocumented)
-    Binary = "Binary",
+    Binary = "binary",
     // (undocumented)
-    Json = "Json",
+    Json = "json",
     // (undocumented)
-    Protobuf = "Protobuf",
+    Protobuf = "protobuf",
     // (undocumented)
-    Text = "Text"
+    Text = "text"
 }
 
 // @public (undocumented)
