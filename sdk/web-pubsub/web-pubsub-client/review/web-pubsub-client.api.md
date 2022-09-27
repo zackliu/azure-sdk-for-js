@@ -76,6 +76,11 @@ export interface GroupDataMessage extends DataMessage {
 }
 
 // @public
+export interface GroupsInfo {
+    groups: string[];
+}
+
+// @public
 export interface JoinGroupMessage extends WebPubSubMessage {
     ackId?: number;
     group: string;
@@ -97,12 +102,8 @@ export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
 
 // @public
 export interface OnConnectedArgs {
+    groupsInfo: GroupsInfo;
     message: ConnectedMessage;
-}
-
-// @public
-export interface OnDataMessageArgs {
-    message: DataMessage;
 }
 
 // @public
@@ -120,10 +121,15 @@ export interface OnGroupDataMessageArgs {
 }
 
 // @public
-export type OnGroupMessageReceived = (args: OnGroupDataMessageArgs) => Promise<void>;
+export type OnGroupMessage = (args: OnGroupDataMessageArgs) => Promise<void>;
 
 // @public
-export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
+export interface OnServerDataMessageArgs {
+    message: ServerDataMessage;
+}
+
+// @public
+export type OnServerMessage = (args: OnServerDataMessageArgs) => Promise<void>;
 
 // @public
 export interface ReconnectionOptions {
@@ -194,15 +200,20 @@ export enum UpstreamMessageType {
 export class WebPubSubClient {
     constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
-    connect(abortSignal?: AbortSignalLike): Promise<void>;
     joinGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
     leaveGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
     onConnected?: OnConnected;
     onDisconnected?: OnDisconnected;
-    onGroupMessage(groupName: string, calback: OnGroupMessageReceived): void;
-    onMessage?: OnMessage;
+    onGroupMessage(...args: [
+    calback: OnGroupMessage
+    ] | [
+    groupName: string,
+    calback: OnGroupMessage
+    ]): void;
+    onServerMessage?: OnServerMessage;
     sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     sendToServer(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
+    start(abortSignal?: AbortSignalLike): Promise<void>;
     stop(): void;
 }
 

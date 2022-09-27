@@ -3,7 +3,7 @@
 
 import { CloseEvent } from "ws";
 import { WebPubSubClientProtocol } from "../protocols";
-import { AckMessage, ConnectedMessage, DataMessage, DisconnectedMessage, GroupDataMessage } from "./messages";
+import { AckMessage, ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage } from "./messages";
 
 /**
  * The client options
@@ -58,13 +58,27 @@ export interface SendToServerOptions {
 }
 
 /**
+ * Groups that currently the client should in from client sdk's perspective. Groups that join or leave from server won't be taken into consideration.
+ */
+export interface GroupsInfo {
+  /**
+   * Current groups
+   */
+  groups: string[];
+}
+
+/**
  * Parameter of OnConnected callback
  */
 export interface OnConnectedArgs {
   /**
    * The connected message
    */
-  message: ConnectedMessage; 
+  message: ConnectedMessage;
+  /**
+   * Groups that currently the client should in from client sdk's perspective. Groups that join or leave from server won't be taken into consideration.
+   */
+  groupsInfo: GroupsInfo;
 }
 
 /**
@@ -84,11 +98,11 @@ export interface OnDisconnectedArgs {
 /**
  * Parameter of OnDataMessage callback
  */
-export interface OnDataMessageArgs {
+export interface OnServerDataMessageArgs {
   /**
    * The data message
    */
-  message: DataMessage;
+  message: ServerDataMessage;
 }
 
 /**

@@ -4,7 +4,7 @@
 import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { SendMessageError } from "./errors";
-import { AckResult, OnConnectedArgs, OnDataMessageArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
+import { AckResult, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
 import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
 import { WebPubSubClientProtocol } from "./protocols";
 import { WebPubSubJsonReliableProtocol } from "./protocols/webPubSubJsonReliableProtocol";
@@ -16,9 +16,14 @@ import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./w
 export type JSONTypes = string | number | boolean | object;
 
 /**
- * Types as callback to be used when received messages.
+ * Types as callback to be used when received messages from server.
  */
-export type OnMessage = (args: OnDataMessageArgs) => Promise<void>;
+export type OnServerMessage = (args: OnServerDataMessageArgs) => Promise<void>;
+
+/**
+ * Types as callback to be used when received messages from groups.
+ */
+export type OnGroupMessage = (args: OnGroupDataMessageArgs) => Promise<void>;
 
 /**
  * Types as callback to be used when connected
@@ -29,11 +34,6 @@ export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
  * Types as callback to be used when disconnected
  */
 export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
-
-/**
- * Types as callback to be used when received group messages.
- */
-export type OnGroupMessageReceived = (args: OnGroupDataMessageArgs) => Promise<void>;
 
 /**
  * The WebPubSub client
@@ -49,9 +49,9 @@ export class WebPubSubClient {
   // client lifetime
 
   /**
-   * Callback when received messages.
+   * Callback when received messages from server.
    */
-  public onMessage?: OnMessage;
+  public onServerMessage?: OnServerMessage;
 
   /**
    * Callback when connected
@@ -63,14 +63,34 @@ export class WebPubSubClient {
    */
   public onDisconnected?: OnDisconnected;
 
+  private _onGroupMessage?: OnGroupMessage;
+
   /**
-   * Callback when received messages from specific group
+   * Callback when received messages from group or from specific group
    * @param groupName The group name
    * @param calback The callback
    */
-  public onGroupMessage(groupName: string, calback: OnGroupMessageReceived) {
-    let group = this.getOrAddGroup(groupName);
-    group.callback = calback;
+  public onGroupMessage(...args: [
+    /**
+     * The callback
+     */
+    calback: OnGroupMessage
+  ] | [
+    /**
+     * The group name
+     */
+    groupName: string,
+    /**
+     * The callback
+     */
+    calback: OnGroupMessage,
+  ]): void {
+    if (typeof args[0] === 'string') {
+      let group = this.getOrAddGroup(args[0]);
+      group.callback = args[1];
+    } else {
+      this._onGroupMessage = args[0] as OnGroupMessage;
+    }
   }
 
   private _state: WebPubSubClientState;
@@ -127,10 +147,10 @@ export class WebPubSubClient {
   }
 
   /**
-   * Start to connect to the service.
+   * Start to start to the service.
    * @param abortSignal The abort signal
    */
-  public async connect(abortSignal?: AbortSignalLike) : Promise<void> {
+  public async start(abortSignal?: AbortSignalLike) : Promise<void> {
     if (this._isStopped) {
       console.error("Can't start a stopped client");
       return;
@@ -349,7 +369,14 @@ export class WebPubSubClient {
           if (!this._isInitialConnected) {
             this._isInitialConnected = true;
             if (this.onConnected != null) {
-              await this.onConnected({message: message});
+              let groups: string[] = [];
+              this._groupMap.forEach(g => {
+                if (g.isJoined) {
+                  groups.push(g.name);
+                }
+              });
+
+              await this.onConnected({message: message, groupsInfo: {groups: groups}});
             }
           }
         };
@@ -369,11 +396,15 @@ export class WebPubSubClient {
           if (this._groupMap.has(message.group)) {
             let group = this._groupMap.get(message.group)
             if (group?.callback != null) {
-              await group.callback({message: message});
+              try {
+                await group.callback({message: message});
+              } catch {}
             }
           }
-          if (this.onMessage != null) {
-            await this.onMessage({message: message});
+          if (this._onGroupMessage != null) {
+            try {
+              await this._onGroupMessage({message: message});
+            } catch {}
           }
         }
 
@@ -385,8 +416,10 @@ export class WebPubSubClient {
               return;
             }
           }
-          if (this.onMessage != null) {
-            await this.onMessage({message: message});
+          if (this.onServerMessage != null) {
+            try {
+              await this.onServerMessage({message: message});
+            } catch {}
           }
         }
 
@@ -553,7 +586,7 @@ enum WebPubSubClientState {
 class WebPubSubGroup {
   public readonly name: string;
   public isJoined = false;
-  public callback?: OnGroupMessageReceived;
+  public callback?: OnGroupMessage;
 
   constructor(name: string) {
     this.name = name;
