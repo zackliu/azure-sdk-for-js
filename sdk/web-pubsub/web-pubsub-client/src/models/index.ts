@@ -44,9 +44,9 @@ export interface SendToGroupOptions {
 }
 
 /**
- * Send to server operation options
+ * Send event operation options
  */
-export interface SendToServerOptions {
+export interface SendEventOptions {
   /**
    * If true, the message won't contains ackId. No AckMessage will be returned from the service.
    */

@@ -142,6 +142,11 @@ export interface SendEventMessage extends WebPubSubMessage {
 }
 
 // @public
+export interface SendEventOptions {
+    fireAndForget: boolean;
+}
+
+// @public
 export class SendMessageError extends Error {
     constructor(message: string, ackMessage?: AckMessage);
     ackMessage?: AckMessage;
@@ -162,11 +167,6 @@ export interface SendToGroupMessage extends WebPubSubMessage {
 export interface SendToGroupOptions {
     fireAndForget: boolean;
     noEcho: boolean;
-}
-
-// @public
-export interface SendToServerOptions {
-    fireAndForget: boolean;
 }
 
 // @public
@@ -207,8 +207,8 @@ export class WebPubSubClient {
     calback: OnGroupMessage
     ]): void;
     onServerMessage?: OnServerMessage;
+    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendEventOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
-    sendToServer(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToServerOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
     start(abortSignal?: AbortSignalLike): Promise<void>;
     stop(): void;
 }

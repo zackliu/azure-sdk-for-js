@@ -4,7 +4,7 @@
 import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { SendMessageError } from "./errors";
-import { AckResult, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, ReconnectionOptions, SendToGroupOptions, SendToServerOptions, WebPubSubClientOptions } from "./models";
+import { AckResult, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, ReconnectionOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions } from "./models";
 import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
 import { WebPubSubClientProtocol } from "./protocols";
 import { WebPubSubJsonReliableProtocol } from "./protocols/webPubSubJsonReliableProtocol";
@@ -187,11 +187,11 @@ export class WebPubSubClient {
    * @param options The options
    * @param abortSignal The abort signal
    */
-  public async sendToServer(eventName: string,
+  public async sendEvent(eventName: string,
      content: JSONTypes | ArrayBuffer,
      dataType: WebPubSubDataType,
      ackId?: number,
-     options?: SendToServerOptions,
+     options?: SendEventOptions,
      abortSignal?: AbortSignalLike): Promise<void|AckResult> {
       if (options == null) {
         options = {fireAndForget: false};
