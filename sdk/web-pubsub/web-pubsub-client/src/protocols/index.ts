@@ -3,6 +3,9 @@
 
 import { WebPubSubMessage } from "../models/messages";
 
+/**
+ * The interface to be implemented for a web pubsub subprotocol
+ */
 export interface WebPubSubClientProtocol {
   /**
    * The name of subprotocol. Name will be used in websocket subprotocol

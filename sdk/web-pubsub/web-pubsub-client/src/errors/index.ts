@@ -3,11 +3,24 @@
 
 import { AckMessage } from "../models/messages";
 
+/**
+ * Error when sending message failed
+ */
 export class SendMessageError extends Error {
-  name: string;
-  ackMessage?: AckMessage
-
-  constructor(message: string, ackMessage?: AckMessage) {
+  /**
+   * Error name
+   */
+  public name: string;
+  /**
+   * The AckMessage from the service
+   */
+  public ackMessage?: AckMessage
+  /**
+   * Initialize a SendMessageError
+   * @param message The error message
+   * @param ackMessage The ack message
+   */
+  public constructor(message: string, ackMessage?: AckMessage) {
     super(message);
     this.name = "SendMessageError";
     this.ackMessage = ackMessage;

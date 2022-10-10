@@ -34,13 +34,6 @@ export interface ConnectedMessage extends WebPubSubMessage {
 }
 
 // @public
-export interface DataMessage extends WebPubSubMessage {
-    data: JSONTypes | ArrayBuffer;
-    dataType: WebPubSubDataType;
-    sequenceId?: number;
-}
-
-// @public
 export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
     constructor(clientAccessUri: string);
     constructor(clientAccessUriProvider: ClientAccessUriProvider);
@@ -69,9 +62,12 @@ export interface ErrorDetail {
 }
 
 // @public
-export interface GroupDataMessage extends DataMessage {
+export interface GroupDataMessage extends WebPubSubMessage {
+    data: JSONTypes | ArrayBuffer;
+    dataType: WebPubSubDataType;
     fromUserId: string;
     group: string;
+    sequenceId?: number;
     readonly _type: DownstreamMessageType.GroupData;
 }
 
@@ -134,7 +130,6 @@ export type OnServerMessage = (args: OnServerDataMessageArgs) => Promise<void>;
 // @public
 export interface ReconnectionOptions {
     autoReconnect: boolean;
-    autoRejoinGroups: boolean;
 }
 
 // @public
@@ -146,12 +141,10 @@ export interface SendEventMessage extends WebPubSubMessage {
     readonly _type: UpstreamMessageType.SendEvent;
 }
 
-// @public (undocumented)
+// @public
 export class SendMessageError extends Error {
     constructor(message: string, ackMessage?: AckMessage);
-    // (undocumented)
     ackMessage?: AckMessage;
-    // (undocumented)
     name: string;
 }
 
@@ -183,7 +176,10 @@ export interface SequenceAckMessage extends WebPubSubMessage {
 }
 
 // @public
-export interface ServerDataMessage extends DataMessage {
+export interface ServerDataMessage extends WebPubSubMessage {
+    data: JSONTypes | ArrayBuffer;
+    dataType: WebPubSubDataType;
+    sequenceId?: number;
     readonly _type: DownstreamMessageType.ServerData;
 }
 
@@ -228,7 +224,7 @@ export interface WebPubSubClientOptions {
     reconnectionOptions: ReconnectionOptions;
 }
 
-// @public (undocumented)
+// @public
 export interface WebPubSubClientProtocol {
     isReliableSubProtocol: boolean;
     name: string;

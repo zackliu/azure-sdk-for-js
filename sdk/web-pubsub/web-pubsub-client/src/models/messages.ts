@@ -135,31 +135,25 @@ export interface DisconnectedMessage extends WebPubSubMessage {
 }
 
 /**
- * Data message
- */
-export interface DataMessage extends WebPubSubMessage {
-  /**
-   * The data type
-   */
-  dataType: WebPubSubDataType;
-  /**
-   * The data
-   */
-  data: JSONTypes | ArrayBuffer;
-  /**
-   * The sequence id of the data. Only available in reliable protocols
-   */
-  sequenceId?: number;
-}
-
-/**
  * Group data message
  */
-export interface GroupDataMessage extends DataMessage {
+export interface GroupDataMessage extends WebPubSubMessage {
   /**
    * Message type
    */
   readonly _type: DownstreamMessageType.GroupData;
+  /**
+   * The data type
+   */
+   dataType: WebPubSubDataType;
+   /**
+    * The data
+    */
+   data: JSONTypes | ArrayBuffer;
+   /**
+    * The sequence id of the data. Only available in reliable protocols
+    */
+   sequenceId?: number;
   /**
    * The name of group that the message come from.
    */
@@ -173,11 +167,23 @@ export interface GroupDataMessage extends DataMessage {
 /**
  * Server data message
  */
-export interface ServerDataMessage extends DataMessage {
+export interface ServerDataMessage extends WebPubSubMessage {
   /**
    * Message type
    */
   readonly _type: DownstreamMessageType.ServerData;
+  /**
+   * The data type
+   */
+   dataType: WebPubSubDataType;
+   /**
+    * The data
+    */
+   data: JSONTypes | ArrayBuffer;
+   /**
+    * The sequence id of the data. Only available in reliable protocols
+    */
+   sequenceId?: number;
 }
 
 /**

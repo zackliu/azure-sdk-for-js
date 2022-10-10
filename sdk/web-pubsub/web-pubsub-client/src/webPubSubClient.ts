@@ -537,7 +537,6 @@ export class WebPubSubClient {
       protocol: new WebPubSubJsonReliableProtocol(),
       reconnectionOptions: <ReconnectionOptions> {
         autoReconnect: true,
-        autoRejoinGroups: true,
       }
     }
   }

@@ -27,10 +27,6 @@ export interface ReconnectionOptions {
    * Whether to auto reconnect after connection is dropped and not recoverable
    */
   autoReconnect: boolean;
-  /**
-   * Whether to auto re-join groups after reconnect.
-   */
-  autoRejoinGroups: boolean;
 }
 
 /**
