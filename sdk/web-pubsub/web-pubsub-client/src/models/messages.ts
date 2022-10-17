@@ -3,11 +3,14 @@
 
 import { JSONTypes } from "../webPubSubClient";
 
+export type WebPubSubMessage = GroupDataMessage | ServerDataMessage | JoinGroupMessage | LeaveGroupMessage | ConnectedMessage | DisconnectedMessage |
+                               SendToGroupMessage | SendEventMessage | SequenceAckMessage | AckMessage
+
 /**
- * The WebPubSub message
+ * The common of web pubsub message
  */
-export interface WebPubSubMessage {
-  _type: DownstreamMessageType | UpstreamMessageType
+export interface WebPubSubMessageBase {
+  kind: DownstreamMessageType | UpstreamMessageType
 }
 
 /**
@@ -65,11 +68,11 @@ export enum UpstreamMessageType {
 /**
  * The ack message
  */
-export interface AckMessage extends WebPubSubMessage {
+export interface AckMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: DownstreamMessageType.Ack;
+  readonly kind: DownstreamMessageType.Ack;
   /**
    * The correspending id
    */
@@ -101,11 +104,11 @@ export interface ErrorDetail {
 /**
  * Connected message
  */
-export interface ConnectedMessage extends WebPubSubMessage {
+export interface ConnectedMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: DownstreamMessageType.Connected;
+  readonly kind: DownstreamMessageType.Connected;
   /**
    * The connection id
    */
@@ -123,11 +126,11 @@ export interface ConnectedMessage extends WebPubSubMessage {
 /**
  * Disconnected message
  */
-export interface DisconnectedMessage extends WebPubSubMessage {
+export interface DisconnectedMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: DownstreamMessageType.Disconnected;
+  readonly kind: DownstreamMessageType.Disconnected;
   /**
    * Reason of disconnection.
    */
@@ -137,11 +140,11 @@ export interface DisconnectedMessage extends WebPubSubMessage {
 /**
  * Group data message
  */
-export interface GroupDataMessage extends WebPubSubMessage {
+export interface GroupDataMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: DownstreamMessageType.GroupData;
+  readonly kind: DownstreamMessageType.GroupData;
   /**
    * The data type
    */
@@ -167,11 +170,11 @@ export interface GroupDataMessage extends WebPubSubMessage {
 /**
  * Server data message
  */
-export interface ServerDataMessage extends WebPubSubMessage {
+export interface ServerDataMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: DownstreamMessageType.ServerData;
+  readonly kind: DownstreamMessageType.ServerData;
   /**
    * The data type
    */
@@ -189,11 +192,11 @@ export interface ServerDataMessage extends WebPubSubMessage {
 /**
  * Join group message
  */
-export interface JoinGroupMessage extends WebPubSubMessage {
+export interface JoinGroupMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: UpstreamMessageType.JoinGroup;
+  readonly kind: UpstreamMessageType.JoinGroup;
   /**
    * The group to join
    */
@@ -207,11 +210,11 @@ export interface JoinGroupMessage extends WebPubSubMessage {
 /**
  * Leave group message
  */
-export interface LeaveGroupMessage extends WebPubSubMessage {
+export interface LeaveGroupMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: UpstreamMessageType.LeaveGroup;
+  readonly kind: UpstreamMessageType.LeaveGroup;
   /**
    * The group to leave
    */
@@ -225,11 +228,11 @@ export interface LeaveGroupMessage extends WebPubSubMessage {
 /**
  * Send custom event message
  */
-export interface SendEventMessage extends WebPubSubMessage {
+export interface SendEventMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: UpstreamMessageType.SendEvent;
+  readonly kind: UpstreamMessageType.SendEvent;
   /**
    * Optional ack id. If specified, an AckMessage with success or not will be returned with the same ackId
    */
@@ -251,11 +254,11 @@ export interface SendEventMessage extends WebPubSubMessage {
 /**
  * Send to group message
  */
-export interface SendToGroupMessage extends WebPubSubMessage {
+export interface SendToGroupMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: UpstreamMessageType.SendToGroup;
+  readonly kind: UpstreamMessageType.SendToGroup;
   /**
    * The group to send
    */
@@ -281,11 +284,11 @@ export interface SendToGroupMessage extends WebPubSubMessage {
 /**
  * Sequence ack message
  */
-export interface SequenceAckMessage extends WebPubSubMessage {
+export interface SequenceAckMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly _type: UpstreamMessageType.SequenceAck;
+  readonly kind: UpstreamMessageType.SequenceAck;
   /**
    * The sequence id
    */

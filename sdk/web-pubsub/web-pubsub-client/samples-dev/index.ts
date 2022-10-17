@@ -8,33 +8,34 @@ async function main() {
     return (await serviceClient.getClientAccessToken({roles: ["webpubsub.joinLeaveGroup", "webpubsub.sendToGroup"]})).url;
   }));
 
-  client.onConnected = async e => {
+  client.on("connected", e => {
     console.log(`Connection ${e.message.connectionId} is connected.`);
-  }
+  });
 
-  client.onServerMessage = async e => {
+  client.on("disconnected", e => {
+    console.log(`Connection disconnected: ${e.message}`);
+  });
+
+  client.on("server-message", e => {
     if (e.message.data instanceof ArrayBuffer) {
       console.log(`Received message ${Buffer.from(e.message.data).toString('base64')}`);
     } else {
       console.log(`Received message ${e.message.data}`);  
     }
-  }
-  client.onGroupMessage("testGroup", async e => {
+  });
+
+  client.on("group-message", e => {
     if (e.message.data instanceof ArrayBuffer) {
       console.log(`Received message from testGroup ${Buffer.from(e.message.data).toString('base64')}`);
     } else {
       console.log(`Received message from testGroup ${e.message.data}`);  
     }
-  })
-
-  client.onDisconnected = async e => {
-    console.log(`Connection disconnected: ${e.message}`);
-  }
-
+  });
+  
   await client.start();
 
   await client.joinGroup("testGroup");
-  await client.sendToGroup("testGroup", "hello world", WebPubSubDataType.Text, undefined, {fireAndForget: true} as SendToGroupOptions);
+  await client.sendToGroup("testGroup", "hello world", WebPubSubDataType.Text, {fireAndForget: true} as SendToGroupOptions);
   await client.sendToGroup("testGroup", {a: 12, b: "hello"}, WebPubSubDataType.Json);
   await client.sendToGroup("testGroup", "hello json", WebPubSubDataType.Json);
   var buf = Buffer.from('aGVsbG9w', 'base64');

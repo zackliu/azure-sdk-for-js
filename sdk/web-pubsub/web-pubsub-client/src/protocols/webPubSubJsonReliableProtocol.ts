@@ -8,16 +8,16 @@ import * as base from "./jsonProtocolBase";
 /**
  * The "json.reliable.webpubsub.azure.v1" protocol
  */
-export class WebPubSubJsonReliableProtocol implements WebPubSubClientProtocol {
+export class WebPubSubJsonReliableProtocolImpl implements WebPubSubClientProtocol {
   /**
    * True if the protocol supports reliable features
    */
-  public isReliableSubProtocol = true;
+  public readonly isReliableSubProtocol = true;
 
   /**
    * The name of subprotocol. Name will be used in websocket subprotocol
    */
-  public name = "json.reliable.webpubsub.azure.v1";
+  public readonly name = "json.reliable.webpubsub.azure.v1";
 
   /**
    * Creates WebPubSubMessage objects from the specified serialized representation.

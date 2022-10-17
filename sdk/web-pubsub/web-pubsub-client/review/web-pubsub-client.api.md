@@ -10,26 +10,26 @@ import { AbortSignalLike } from '@azure/abort-controller';
 import { CloseEvent } from 'ws';
 
 // @public
-export interface AckMessage extends WebPubSubMessage {
+export interface AckMessage extends WebPubSubMessageBase {
     ackId: number;
     error?: ErrorDetail;
+    readonly kind: DownstreamMessageType.Ack;
     success: boolean;
-    readonly _type: DownstreamMessageType.Ack;
 }
 
 // @public
 export interface AckResult {
-    ack: AckMessage;
+    ackId: number;
 }
 
 // @public
 export type ClientAccessUriProvider = (abortSignal?: AbortSignalLike) => Promise<string>;
 
 // @public
-export interface ConnectedMessage extends WebPubSubMessage {
+export interface ConnectedMessage extends WebPubSubMessageBase {
     connectionId: string;
+    readonly kind: DownstreamMessageType.Connected;
     reconnectionToken: string;
-    readonly _type: DownstreamMessageType.Connected;
     userId: string;
 }
 
@@ -37,13 +37,13 @@ export interface ConnectedMessage extends WebPubSubMessage {
 export class DefaultWebPubSubClientCredential implements WebPubSubClientCredential {
     constructor(clientAccessUri: string);
     constructor(clientAccessUriProvider: ClientAccessUriProvider);
-    getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
+    getClientAccessUrl(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
 // @public
-export interface DisconnectedMessage extends WebPubSubMessage {
+export interface DisconnectedMessage extends WebPubSubMessageBase {
+    readonly kind: DownstreamMessageType.Disconnected;
     message: string;
-    readonly _type: DownstreamMessageType.Disconnected;
 }
 
 // @public
@@ -62,35 +62,42 @@ export interface ErrorDetail {
 }
 
 // @public
-export interface GroupDataMessage extends WebPubSubMessage {
+export interface GroupDataMessage extends WebPubSubMessageBase {
     data: JSONTypes | ArrayBuffer;
     dataType: WebPubSubDataType;
     fromUserId: string;
     group: string;
+    readonly kind: DownstreamMessageType.GroupData;
     sequenceId?: number;
-    readonly _type: DownstreamMessageType.GroupData;
 }
 
 // @public
-export interface GroupsInfo {
-    groups: string[];
-}
-
-// @public
-export interface JoinGroupMessage extends WebPubSubMessage {
+export interface JoinGroupMessage extends WebPubSubMessageBase {
     ackId?: number;
     group: string;
-    readonly _type: UpstreamMessageType.JoinGroup;
+    readonly kind: UpstreamMessageType.JoinGroup;
+}
+
+// @public
+export interface JoinGroupOptions {
+    abortSignal?: AbortSignalLike;
+    ackId?: number;
 }
 
 // @public
 export type JSONTypes = string | number | boolean | object;
 
 // @public
-export interface LeaveGroupMessage extends WebPubSubMessage {
+export interface LeaveGroupMessage extends WebPubSubMessageBase {
     ackId?: number;
     group: string;
-    readonly _type: UpstreamMessageType.LeaveGroup;
+    readonly kind: UpstreamMessageType.LeaveGroup;
+}
+
+// @public
+export interface LeaveGroupOptions {
+    abortSignal?: AbortSignalLike;
+    ackId?: number;
 }
 
 // @public
@@ -98,7 +105,7 @@ export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
 
 // @public
 export interface OnConnectedArgs {
-    groupsInfo: GroupsInfo;
+    groupRestoreState: Map<string, Error | null>;
     message: ConnectedMessage;
 }
 
@@ -128,59 +135,68 @@ export interface OnServerDataMessageArgs {
 export type OnServerMessage = (args: OnServerDataMessageArgs) => Promise<void>;
 
 // @public
+export interface OnStoppedArgs {
+}
+
+// @public
 export interface ReconnectionOptions {
     autoReconnect: boolean;
 }
 
 // @public
-export interface SendEventMessage extends WebPubSubMessage {
+export interface SendEventMessage extends WebPubSubMessageBase {
     ackId?: number;
     data: JSONTypes | ArrayBuffer;
     dataType: WebPubSubDataType;
     event: string;
-    readonly _type: UpstreamMessageType.SendEvent;
+    readonly kind: UpstreamMessageType.SendEvent;
 }
 
 // @public
 export interface SendEventOptions {
+    abortSignal?: AbortSignalLike;
+    ackId?: number;
     fireAndForget: boolean;
 }
 
 // @public
 export class SendMessageError extends Error {
-    constructor(message: string, ackMessage?: AckMessage);
-    ackMessage?: AckMessage;
+    constructor(message: string, ackId?: number, errorDetail?: ErrorDetail);
+    ackId?: number;
+    errorDetail?: ErrorDetail;
     name: string;
 }
 
 // @public
-export interface SendToGroupMessage extends WebPubSubMessage {
+export interface SendToGroupMessage extends WebPubSubMessageBase {
     ackId?: number;
     data: JSONTypes | ArrayBuffer;
     dataType: WebPubSubDataType;
     group: string;
+    readonly kind: UpstreamMessageType.SendToGroup;
     noEcho: boolean;
-    readonly _type: UpstreamMessageType.SendToGroup;
 }
 
 // @public
 export interface SendToGroupOptions {
+    abortSignal?: AbortSignalLike;
+    ackId?: number;
     fireAndForget: boolean;
     noEcho: boolean;
 }
 
 // @public
-export interface SequenceAckMessage extends WebPubSubMessage {
+export interface SequenceAckMessage extends WebPubSubMessageBase {
+    readonly kind: UpstreamMessageType.SequenceAck;
     sequenceId: number;
-    readonly _type: UpstreamMessageType.SequenceAck;
 }
 
 // @public
-export interface ServerDataMessage extends WebPubSubMessage {
+export interface ServerDataMessage extends WebPubSubMessageBase {
     data: JSONTypes | ArrayBuffer;
     dataType: WebPubSubDataType;
+    readonly kind: DownstreamMessageType.ServerData;
     sequenceId?: number;
-    readonly _type: DownstreamMessageType.ServerData;
 }
 
 // @public
@@ -196,26 +212,37 @@ export enum UpstreamMessageType {
 export class WebPubSubClient {
     constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
-    joinGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
-    leaveGroup(groupName: string, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult>;
-    onConnected?: OnConnected;
-    onDisconnected?: OnDisconnected;
-    onGroupMessage(...args: [
-    calback: OnGroupMessage
-    ] | [
-    groupName: string,
-    calback: OnGroupMessage
-    ]): void;
-    onServerMessage?: OnServerMessage;
-    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendEventOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
-    sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, ackId?: number, options?: SendToGroupOptions, abortSignal?: AbortSignalLike): Promise<void | AckResult>;
+    joinGroup(groupName: string, options?: JoinGroupOptions): Promise<AckResult>;
+    leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<AckResult>;
+    // (undocumented)
+    off(event: "connected", listener: (e: OnConnectedArgs) => void): void;
+    // (undocumented)
+    off(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
+    // (undocumented)
+    off(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
+    // (undocumented)
+    off(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
+    // (undocumented)
+    off(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
+    // (undocumented)
+    on(event: "connected", listener: (e: OnConnectedArgs) => void): void;
+    // (undocumented)
+    on(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
+    // (undocumented)
+    on(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
+    // (undocumented)
+    on(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
+    // (undocumented)
+    on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
+    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendEventOptions): Promise<void | AckResult>;
+    sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendToGroupOptions): Promise<void | AckResult>;
     start(abortSignal?: AbortSignalLike): Promise<void>;
     stop(): void;
 }
 
 // @public
 export interface WebPubSubClientCredential {
-    getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
+    getClientAccessUrl(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
 // @public
@@ -226,8 +253,8 @@ export interface WebPubSubClientOptions {
 
 // @public
 export interface WebPubSubClientProtocol {
-    isReliableSubProtocol: boolean;
-    name: string;
+    readonly isReliableSubProtocol: boolean;
+    readonly name: string;
     parseMessages(input: string | ArrayBuffer | Buffer): WebPubSubMessage;
     writeMessage(message: WebPubSubMessage): string | ArrayBuffer;
 }
@@ -240,26 +267,19 @@ export enum WebPubSubDataType {
     Text = "text"
 }
 
-// @public
-export class WebPubSubJsonProtocol implements WebPubSubClientProtocol {
-    isReliableSubProtocol: boolean;
-    name: string;
-    parseMessages(input: string): WebPubSubMessage;
-    writeMessage(message: WebPubSubMessage): string;
-}
+// @public (undocumented)
+export const WebPubSubJsonProtocol: () => WebPubSubClientProtocol;
+
+// @public (undocumented)
+export const webPubSubJsonReliableProtocol: () => WebPubSubClientProtocol;
+
+// @public (undocumented)
+export type WebPubSubMessage = GroupDataMessage | ServerDataMessage | JoinGroupMessage | LeaveGroupMessage | ConnectedMessage | DisconnectedMessage | SendToGroupMessage | SendEventMessage | SequenceAckMessage | AckMessage;
 
 // @public
-export class WebPubSubJsonReliableProtocol implements WebPubSubClientProtocol {
-    isReliableSubProtocol: boolean;
-    name: string;
-    parseMessages(input: string): WebPubSubMessage;
-    writeMessage(message: WebPubSubMessage): string;
-}
-
-// @public
-export interface WebPubSubMessage {
+export interface WebPubSubMessageBase {
     // (undocumented)
-    _type: DownstreamMessageType | UpstreamMessageType;
+    kind: DownstreamMessageType | UpstreamMessageType;
 }
 
 // (No @packageDocumentation comment for this package)

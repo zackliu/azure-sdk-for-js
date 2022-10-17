@@ -1,9 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
+import { AbortSignalLike } from "@azure/abort-controller";
 import { CloseEvent } from "ws";
 import { WebPubSubClientProtocol } from "../protocols";
-import { AckMessage, ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage } from "./messages";
+import { ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage } from "./messages";
 
 /**
  * The client options
@@ -30,6 +31,34 @@ export interface ReconnectionOptions {
 }
 
 /**
+ * Join group operation options
+ */
+export interface JoinGroupOptions {
+  /**
+   * The optional ackId. If not specified, client will generate one. 
+   */
+  ackId?: number;
+  /**
+   * The abort signal
+   */
+  abortSignal?: AbortSignalLike;
+}
+
+/**
+ * Leave group operation options
+ */
+ export interface LeaveGroupOptions {
+  /**
+   * The optional ackId. If not specified, client will generate one. 
+   */
+  ackId?: number;
+  /**
+   * The abort signal
+   */
+  abortSignal?: AbortSignalLike;
+}
+
+/**
  * Send to group operation options
  */
 export interface SendToGroupOptions {
@@ -41,6 +70,14 @@ export interface SendToGroupOptions {
    * If true, the message won't contains ackId. No AckMessage will be returned from the service.
    */
   fireAndForget:boolean;
+  /**
+   * The optional ackId. If not specified, client will generate one. 
+   */
+  ackId?: number;
+  /**
+  * The abort signal
+  */
+  abortSignal?: AbortSignalLike;
 }
 
 /**
@@ -51,16 +88,14 @@ export interface SendEventOptions {
    * If true, the message won't contains ackId. No AckMessage will be returned from the service.
    */
   fireAndForget:boolean;
-}
-
-/**
- * Groups that currently the client should in from client sdk's perspective. Groups that join or leave from server won't be taken into consideration.
- */
-export interface GroupsInfo {
   /**
-   * Current groups
+   * The optional ackId. If not specified, client will generate one. 
    */
-  groups: string[];
+  ackId?: number;
+  /**
+  * The abort signal
+  */
+  abortSignal?: AbortSignalLike;
 }
 
 /**
@@ -72,9 +107,9 @@ export interface OnConnectedArgs {
    */
   message: ConnectedMessage;
   /**
-   * Groups that currently the client should in from client sdk's perspective. Groups that join or leave from server won't be taken into consideration.
+   * Groups that joined from client will be restore after reconnection. Groups that join or leave from server won't be taken into consideration.
    */
-  groupsInfo: GroupsInfo;
+  groupRestoreState: Map<string, Error|null>;
 }
 
 /**
@@ -89,6 +124,12 @@ export interface OnDisconnectedArgs {
    * The websocket close event
    */
   event?: CloseEvent;
+}
+
+/**
+ * Parameter of OnStopped callback
+ */
+ export interface OnStoppedArgs {
 }
 
 /**
@@ -118,7 +159,7 @@ export interface AckResult {
   /**
    * The ack message from the service
    */
-  ack: AckMessage;
+  ackId: number;
 }
 
 export * from "./messages"

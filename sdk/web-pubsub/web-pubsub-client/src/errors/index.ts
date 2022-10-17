@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-import { AckMessage } from "../models/messages";
+import { ErrorDetail } from "../models/messages";
 
 /**
  * Error when sending message failed
@@ -12,17 +12,22 @@ export class SendMessageError extends Error {
    */
   public name: string;
   /**
-   * The AckMessage from the service
+   * The ack id of the message
    */
-  public ackMessage?: AckMessage
+  public ackId?: number;
+  /**
+   * The error details from the service
+   */
+  public errorDetail?: ErrorDetail
   /**
    * Initialize a SendMessageError
    * @param message The error message
    * @param ackMessage The ack message
    */
-  public constructor(message: string, ackMessage?: AckMessage) {
+  public constructor(message: string, ackId?: number, errorDetail?: ErrorDetail) {
     super(message);
     this.name = "SendMessageError";
-    this.ackMessage = ackMessage;
+    this.ackId = ackId;
+    this.errorDetail = errorDetail;
   }
 }

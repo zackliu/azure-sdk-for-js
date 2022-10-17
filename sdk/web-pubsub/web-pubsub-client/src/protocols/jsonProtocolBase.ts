@@ -20,27 +20,27 @@ export function parseMessages(input: string): WebPubSubMessage {
 
   if (typedMessage.type == "system") {
     if (typedMessage.event == "connected") {
-      returnMessage = {...parsedMessage, _type: DownstreamMessageType.Connected} as ConnectedMessage;
+      returnMessage = {...parsedMessage, kind: DownstreamMessageType.Connected} as ConnectedMessage;
     } else if (typedMessage.event == "disconnected") {
-      returnMessage = {...parsedMessage, _type:DownstreamMessageType.Disconnected} as DisconnectedMessage;
+      returnMessage = {...parsedMessage, kind:DownstreamMessageType.Disconnected} as DisconnectedMessage;
     } else {
       throw new Error();
     }
   } else if (typedMessage.type == "message") {
     if (typedMessage.from == "group") {
       let data = parsePayload(parsedMessage.data, parsedMessage.dataType as WebPubSubDataType);
-      returnMessage = {...parsedMessage, data: data, _type:DownstreamMessageType.GroupData
+      returnMessage = {...parsedMessage, data: data, kind:DownstreamMessageType.GroupData
       } as GroupDataMessage;
     } else if (typedMessage.from == "server") {
       let data = parsePayload(parsedMessage.data, parsedMessage.dataType as WebPubSubDataType);
       returnMessage = {
-        ...parsedMessage, data: data, _type:DownstreamMessageType.ServerData
+        ...parsedMessage, data: data, kind:DownstreamMessageType.ServerData
       } as ServerDataMessage;
     } else {
       throw new Error();
     }
   } else if (typedMessage.type == "ack") {
-    returnMessage = {...parsedMessage, _type:DownstreamMessageType.Ack} as AckMessage;
+    returnMessage = {...parsedMessage, kind:DownstreamMessageType.Ack} as AckMessage;
   } else {
     throw new Error();
   }
@@ -49,29 +49,29 @@ export function parseMessages(input: string): WebPubSubMessage {
 
 export function writeMessage(message: WebPubSubMessage): string {
   let data: any;
-  switch (message._type) {
+  switch (message.kind) {
     case UpstreamMessageType.JoinGroup: {
-      data = new JoinGroupData(message as JoinGroupMessage);
+      data = new JoinGroupData(message);
       break;
     }
     case UpstreamMessageType.LeaveGroup: {
-      data = new LeaveGroupData(message as LeaveGroupMessage);
+      data = new LeaveGroupData(message);
       break;
     }
     case UpstreamMessageType.SendEvent: {
-      data = new SendEventData(message as SendEventMessage);
+      data = new SendEventData(message);
       break;
     }
     case UpstreamMessageType.SendToGroup: {
-      data = new SendToGroupData(message as SendToGroupMessage);
+      data = new SendToGroupData(message);
       break;
     }
     case UpstreamMessageType.SequenceAck: {
-      data = new SequenceAckData(message as SequenceAckMessage);
+      data = new SequenceAckData(message);
       break;
     }
     default: {
-      throw new Error(`Unsupported type: ${message._type}`);
+      throw new Error(`Unsupported type: ${message.kind}`);
     }
   }
 

@@ -14,10 +14,10 @@ export type ClientAccessUriProvider = (abortSignal?: AbortSignalLike) => Promise
 export interface WebPubSubClientCredential {
 
     /**
-     * Gets an `getClientAccessUri` which is used in connecting to the service
+     * Gets an `getClientAccessUrl` which is used in connecting to the service
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
-    getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string>;
+    getClientAccessUrl(abortSignal?: AbortSignalLike): Promise<string>;
 }
 
 /**
@@ -45,10 +45,10 @@ export class DefaultWebPubSubClientCredential implements WebPubSubClientCredenti
     }
   
     /**
-     * Gets an `getClientAccessUri` which is used in connecting to the service
+     * Gets an `getClientAccessUrl` which is used in connecting to the service
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
-    public async getClientAccessUri(abortSignal?: AbortSignalLike): Promise<string> {
+    public async getClientAccessUrl(abortSignal?: AbortSignalLike): Promise<string> {
       const token = await this._clientAccessUriProvider(abortSignal);
       return token;
     }

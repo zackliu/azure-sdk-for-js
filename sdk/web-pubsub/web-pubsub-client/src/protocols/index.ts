@@ -2,6 +2,7 @@
 // Licensed under the MIT license.
 
 import { WebPubSubMessage } from "../models/messages";
+import { WebPubSubJsonProtocolImpl } from "./webPubSubJsonProtocol";
 
 /**
  * The interface to be implemented for a web pubsub subprotocol
@@ -10,12 +11,12 @@ export interface WebPubSubClientProtocol {
   /**
    * The name of subprotocol. Name will be used in websocket subprotocol
    */
-  name: string;
+  readonly name: string;
 
   /**
    * True if the protocol supports reliable features
    */
-  isReliableSubProtocol: boolean;
+  readonly isReliableSubProtocol: boolean;
   
   /**
    * Creates WebPubSubMessage objects from the specified serialized representation.
@@ -30,5 +31,10 @@ export interface WebPubSubClientProtocol {
   writeMessage(message: WebPubSubMessage): string | ArrayBuffer;
 }
 
-export * from "./webPubSubJsonProtocol"
-export * from "./webPubSubJsonReliableProtocol"
+export const WebPubSubJsonProtocol = () : WebPubSubClientProtocol => {
+  return new WebPubSubJsonProtocolImpl();
+}
+
+export const webPubSubJsonReliableProtocol = () : WebPubSubClientProtocol => {
+  return new WebPubSubJsonProtocolImpl();
+}
