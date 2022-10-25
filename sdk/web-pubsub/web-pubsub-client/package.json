@@ -5,29 +5,32 @@
   "sdk-type": "client",
   "main": "dist/index.js",
   "module": "dist-esm/src/index.js",
+  "browser": {
+    "./dist-esm/src/index.js": "./dist-esm/src/index.browser.js"
+  },
   "types": "types/web-pubsub-client.d.ts",
   "scripts": {
     "audit": "node ../../../common/scripts/rush-audit.js && rimraf node_modules package-lock.json && npm i --package-lock-only 2>&1 && npm audit",
-    "build:browser": "echo \"Browser is not supported.\" && exit 0",
-    "build:node": "tsc -p . && dev-tool run bundle --browser-test=false",
+    "build:browser": "tsc -p . && dev-tool run bundle",
+    "build:node": "tsc -p . && dev-tool run bundle",
     "build:samples": "echo Obsolete.",
-    "build:test": "tsc -p . && dev-tool run bundle --browser-test=false",
-    "build": "npm run clean && tsc -p . && dev-tool run bundle --browser-test=false && api-extractor run --local",
+    "build:test": "tsc -p . && dev-tool run bundle",
+    "build": "npm run clean && tsc -p . && dev-tool run bundle && api-extractor run --local",
     "check-format": "prettier --list-different --config ../../../.prettierrc.json --ignore-path ../../../.prettierignore \"src/**/*.ts\" \"test/**/*.ts\" \"samples-dev/**/*.ts\" \"*.{js,json}\"",
     "format": "prettier --write --config ../../../.prettierrc.json --ignore-path ../../../.prettierignore \"src/**/*.ts\" \"test/**/*.ts\" \"samples-dev/**/*.ts\" \"*.{js,json}\"",
     "clean": "rimraf dist dist-esm test-dist temp types *.tgz *.log",
     "execute:samples": "dev-tool samples run samples-dev",
     "extract-api": "tsc -p . && api-extractor run --local",
-    "integration-test:browser": "echo \"Browser is not supported.\" && exit 0",
+    "integration-test:browser": "echo skipped",
     "integration-test:node": "echo skipped",
     "integration-test": "npm run integration-test:node && npm run integration-test:browser",
     "lint:fix": "eslint package.json api-extractor.json README.md src test --ext .ts,.javascript,.js --fix --fix-type [problem,suggestion]",
     "lint": "eslint package.json api-extractor.json README.md src test --ext .ts,.javascript,.js",
     "pack": "npm pack 2>&1",
-    "test:browser": "echo \"Browser is not supported.\" && exit 0",
+    "test:browser": "npm run build:test && npm run unit-test:browser && npm run integration-test:browser",
     "test:node": "npm run build:test && npm run unit-test:node && npm run integration-test:node",
     "test": "npm run build:test && npm run unit-test && npm run integration-test",
-    "unit-test:browser": "echo \"Browser is not supported.\" && exit 0",
+    "unit-test:browser": "dev-tool run test:browser",
     "unit-test:node": "mocha -r esm --require ts-node/register --reporter ../../../common/tools/mocha-multi-reporter.js --full-trace \"test/{,!(browser)/**/}*.spec.ts\"",
     "unit-test": "npm run unit-test:node && npm run unit-test:browser"
   },
@@ -59,8 +62,8 @@
     "@azure/logger": "^1.0.0",
     "@azure/abort-controller": "~1.1.1",
     "@azure/core-rest-pipeline": "~1.9.1",
-    "@types/ws": "~8.5.3",
-    "ws": "~8.5"
+    "@types/ws": "^7.4.5",
+    "ws": "^7.4.5"
   },
   "devDependencies": {
     "@azure/dev-tool": "^1.0.0",
@@ -102,7 +105,9 @@
     "sinon": "^9.0.2",
     "source-map-support": "^0.5.9",
     "typescript": "~4.6.0",
-    "@azure/web-pubsub": "1.1.0"
+    "@azure/web-pubsub": "1.1.0",
+    "@azure/test-utils": "1.0.0",
+    "mock-socket": "^9.1.5"
   },
   "//sampleConfiguration": {
     "productName": "Azure Web PubSub Client",

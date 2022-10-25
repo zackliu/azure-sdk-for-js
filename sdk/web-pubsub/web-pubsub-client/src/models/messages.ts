@@ -3,6 +3,9 @@
 
 import { JSONTypes } from "../webPubSubClient";
 
+/**
+ * The web pubsub message
+ */
 export type WebPubSubMessage = GroupDataMessage | ServerDataMessage | JoinGroupMessage | LeaveGroupMessage | ConnectedMessage | DisconnectedMessage |
                                SendToGroupMessage | SendEventMessage | SequenceAckMessage | AckMessage
 
@@ -84,13 +87,13 @@ export interface AckMessage extends WebPubSubMessageBase {
   /**
    * The error detail. Only available when success is false
    */
-  error?: ErrorDetail;
+  error?: AckMessageError;
 }
 
 /**
  * Error detail in AckMessage
  */
-export interface ErrorDetail {
+export interface AckMessageError {
   /**
    * Error name
    */

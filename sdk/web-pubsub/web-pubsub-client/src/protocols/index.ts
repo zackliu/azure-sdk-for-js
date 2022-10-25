@@ -3,6 +3,7 @@
 
 import { WebPubSubMessage } from "../models/messages";
 import { WebPubSubJsonProtocolImpl } from "./webPubSubJsonProtocol";
+import { WebPubSubJsonReliableProtocolImpl } from "./webPubSubJsonReliableProtocol";
 
 /**
  * The interface to be implemented for a web pubsub subprotocol
@@ -31,10 +32,16 @@ export interface WebPubSubClientProtocol {
   writeMessage(message: WebPubSubMessage): string | ArrayBuffer;
 }
 
+/**
+ * Return the "json.webpubsub.azure.v1" protocol
+ */
 export const WebPubSubJsonProtocol = () : WebPubSubClientProtocol => {
   return new WebPubSubJsonProtocolImpl();
 }
 
-export const webPubSubJsonReliableProtocol = () : WebPubSubClientProtocol => {
-  return new WebPubSubJsonProtocolImpl();
+/**
+ * Return the "json.reliable.webpubsub.azure.v1" protocol
+ */
+export const WebPubSubJsonReliableProtocol = () : WebPubSubClientProtocol => {
+  return new WebPubSubJsonReliableProtocolImpl();
 }

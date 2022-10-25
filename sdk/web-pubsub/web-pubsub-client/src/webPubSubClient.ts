@@ -3,37 +3,17 @@
 
 import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import EventEmitter from "events";
-import { CloseEvent, MessageEvent, WebSocket } from "ws";
+import WebSocket, { CloseEvent, MessageEvent } from "ws";
 import { SendMessageError } from "./errors";
-import { AckResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, ReconnectionOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions } from "./models";
+import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, ReconnectionOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions } from "./models";
 import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
-import { WebPubSubClientProtocol } from "./protocols";
+import { WebPubSubClientProtocol, WebPubSubJsonReliableProtocol } from "./protocols";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
 
 /**
  * Types which can be serialized and sent as JSON.
  */
 export type JSONTypes = string | number | boolean | object;
-
-/**
- * Types as callback to be used when received messages from server.
- */
-export type OnServerMessage = (args: OnServerDataMessageArgs) => Promise<void>;
-
-/**
- * Types as callback to be used when received messages from groups.
- */
-export type OnGroupMessage = (args: OnGroupDataMessageArgs) => Promise<void>;
-
-/**
- * Types as callback to be used when connected
- */
-export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
-
-/**
- * Types as callback to be used when disconnected
- */
-export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
 
 /**
  * The WebPubSub client
@@ -85,10 +65,17 @@ export class WebPubSubClient {
       this._credential = credential;
     }
 
+    let defaultOptions = this.buildDefaultOptions();
     if (!options) {
-      this._options = this.buildDefaultOptions();
+      this._options = defaultOptions;
     } else {
       this._options = options;
+      if (!this._options.protocol) {
+        this._options.protocol = defaultOptions.protocol;
+      }
+      if (!this._options.reconnectionOptions) {
+        this._options.reconnectionOptions = defaultOptions.reconnectionOptions;
+      }
     }
 
     this._protocol = this._options.protocol;
@@ -198,7 +185,7 @@ export class WebPubSubClient {
   public async sendEvent(eventName: string,
      content: JSONTypes | ArrayBuffer,
      dataType: WebPubSubDataType,
-     options?: SendEventOptions): Promise<void|AckResult> {
+     options?: SendEventOptions): Promise<void|WebPubSubResult> {
       if (options == null) {
         options = {fireAndForget: false};
       }
@@ -231,13 +218,14 @@ export class WebPubSubClient {
    * @param ackId The optional ackId. If not specified, client will generate one. 
    * @param abortSignal The abort signal
    */
-  public async joinGroup(groupName: string, options?: JoinGroupOptions): Promise<AckResult> {
+  public async joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = true;
     return await this.JoinGroupCore(groupName, options);
   }
 
-  private async JoinGroupCore(groupName: string, options?: JoinGroupOptions): Promise<AckResult> {
+
+  private async JoinGroupCore(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
     options = options || {} as JoinGroupOptions;
 
     return await this.sendMessageWithAckId(id => {
@@ -255,7 +243,7 @@ export class WebPubSubClient {
    * @param ackId The optional ackId. If not specified, client will generate one. 
    * @param abortSignal The abort signal
    */
-  public async leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<AckResult> {
+  public async leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult> {
     let group = this.getOrAddGroup(groupName);
     group.isJoined = false;
 
@@ -281,7 +269,7 @@ export class WebPubSubClient {
    */
   public async sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer,
     dataType: WebPubSubDataType,
-    options?: SendToGroupOptions): Promise<void|AckResult> {
+    options?: SendToGroupOptions): Promise<void|WebPubSubResult> {
       if (options == null) {
         options = {fireAndForget: false, noEcho: false};
       }
@@ -534,7 +522,7 @@ export class WebPubSubClient {
     await sendAsync(this._socket, payload, abortSignal);
   }
 
-  private async sendMessageWithAckId(messageProvider: (ackId: number) => WebPubSubMessage, ackId?: number, abortSignal?: AbortSignalLike): Promise<AckResult> {
+  private async sendMessageWithAckId(messageProvider: (ackId: number) => WebPubSubMessage, ackId?: number, abortSignal?: AbortSignalLike): Promise<WebPubSubResult> {
     if (ackId == null) {
       ackId = this.nextAckId();
     }
@@ -666,7 +654,6 @@ enum WebPubSubClientState {
 class WebPubSubGroup {
   public readonly name: string;
   public isJoined = false;
-  public callback?: OnGroupMessage;
 
   constructor(name: string) {
     this.name = name;
@@ -674,7 +661,7 @@ class WebPubSubGroup {
 }
 
 class AckEntity {
-  private readonly _deferred: Deferred<AckResult>;
+  private readonly _deferred: Deferred<WebPubSubResult>;
 
   constructor(ackId: number) {
     this._deferred = new Deferred();
@@ -687,7 +674,7 @@ class AckEntity {
     return this._deferred.promise;
   }
 
-  resolve(value: AckResult | PromiseLike<AckResult>) {
+  resolve(value: WebPubSubResult | PromiseLike<WebPubSubResult>) {
     this._deferred.resolve(value);
   }
 
@@ -787,7 +774,3 @@ class AbortableTask {
     }
   }
 }
-function WebPubSubJsonReliableProtocol(): WebPubSubClientProtocol {
-  throw new Error("Function not implemented.");
-}
-

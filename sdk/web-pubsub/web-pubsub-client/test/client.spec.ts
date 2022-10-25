@@ -1,0 +1,45 @@
+import { assert } from "@azure/test-utils";
+import { ReconnectionOptions, WebPubSubClientOptions } from "../src/models";
+import { WebPubSubJsonProtocol } from "../src/protocols";
+import { WebPubSubClient } from "../src/webPubSubClient";
+import { DefaultWebPubSubClientCredential } from "../src/webPubSubClientCredential";
+
+describe("WebPubSubClient", function() {
+  describe("Construct a new client and options", () => {
+    it("takes a client access url", () => {
+      assert.doesNotThrow(() => {
+        new WebPubSubClient("wss://service.com");
+      });
+    });
+
+    it("take client access url as func", () => {
+      assert.doesNotThrow(() => {
+        new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"));
+      });
+    });
+
+    it("take options", () => {
+      assert.doesNotThrow(() => {
+        new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"), {protocol: WebPubSubJsonProtocol(), reconnectionOptions: {autoReconnect: false} as ReconnectionOptions} as WebPubSubClientOptions);
+      });
+    });
+
+    it("protocol is missing ", () => {
+      assert.doesNotThrow(() => {
+        let client = new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"), {reconnectionOptions: {autoReconnect: false} as ReconnectionOptions} as WebPubSubClientOptions);
+        let protocol = client['_protocol'];
+        assert.equal('json.reliable.webpubsub.azure.v1', protocol.name);
+        let options = client['_options'];
+        assert.isFalse(options.reconnectionOptions.autoReconnect);
+      });
+    });
+
+    it("reconnectionOptions is missing ", () => {
+      assert.doesNotThrow(() => {
+        let client = new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"), {} as WebPubSubClientOptions);
+        let options = client['_options'];
+        assert.isTrue(options.reconnectionOptions.autoReconnect);
+      });
+    });
+  });
+});

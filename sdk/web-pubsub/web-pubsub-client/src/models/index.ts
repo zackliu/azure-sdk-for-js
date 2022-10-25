@@ -155,7 +155,7 @@ export interface OnGroupDataMessageArgs {
 /**
  * The ack result
  */
-export interface AckResult {
+export interface WebPubSubResult {
   /**
    * The ack message from the service
    */

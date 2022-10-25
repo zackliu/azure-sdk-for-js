@@ -12,14 +12,15 @@ import { CloseEvent } from 'ws';
 // @public
 export interface AckMessage extends WebPubSubMessageBase {
     ackId: number;
-    error?: ErrorDetail;
+    error?: AckMessageError;
     readonly kind: DownstreamMessageType.Ack;
     success: boolean;
 }
 
 // @public
-export interface AckResult {
-    ackId: number;
+export interface AckMessageError {
+    message: string;
+    name: string;
 }
 
 // @public
@@ -53,12 +54,6 @@ export enum DownstreamMessageType {
     Disconnected = "disconnected",
     GroupData = "groupData",
     ServerData = "serverData"
-}
-
-// @public
-export interface ErrorDetail {
-    message: string;
-    name: string;
 }
 
 // @public
@@ -101,16 +96,10 @@ export interface LeaveGroupOptions {
 }
 
 // @public
-export type OnConnected = (args: OnConnectedArgs) => Promise<void>;
-
-// @public
 export interface OnConnectedArgs {
     groupRestoreState: Map<string, Error | null>;
     message: ConnectedMessage;
 }
-
-// @public
-export type OnDisconnected = (args: OnDisconnectedArgs) => Promise<void>;
 
 // @public
 export interface OnDisconnectedArgs {
@@ -124,15 +113,9 @@ export interface OnGroupDataMessageArgs {
 }
 
 // @public
-export type OnGroupMessage = (args: OnGroupDataMessageArgs) => Promise<void>;
-
-// @public
 export interface OnServerDataMessageArgs {
     message: ServerDataMessage;
 }
-
-// @public
-export type OnServerMessage = (args: OnServerDataMessageArgs) => Promise<void>;
 
 // @public
 export interface OnStoppedArgs {
@@ -161,9 +144,9 @@ export interface SendEventOptions {
 
 // @public
 export class SendMessageError extends Error {
-    constructor(message: string, ackId?: number, errorDetail?: ErrorDetail);
+    constructor(message: string, ackId?: number, errorDetail?: AckMessageError);
     ackId?: number;
-    errorDetail?: ErrorDetail;
+    errorDetail?: AckMessageError;
     name: string;
 }
 
@@ -212,8 +195,8 @@ export enum UpstreamMessageType {
 export class WebPubSubClient {
     constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
-    joinGroup(groupName: string, options?: JoinGroupOptions): Promise<AckResult>;
-    leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<AckResult>;
+    joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult>;
+    leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult>;
     // (undocumented)
     off(event: "connected", listener: (e: OnConnectedArgs) => void): void;
     // (undocumented)
@@ -234,8 +217,8 @@ export class WebPubSubClient {
     on(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
     // (undocumented)
     on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
-    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendEventOptions): Promise<void | AckResult>;
-    sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendToGroupOptions): Promise<void | AckResult>;
+    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendEventOptions): Promise<void | WebPubSubResult>;
+    sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendToGroupOptions): Promise<void | WebPubSubResult>;
     start(abortSignal?: AbortSignalLike): Promise<void>;
     stop(): void;
 }
@@ -267,19 +250,24 @@ export enum WebPubSubDataType {
     Text = "text"
 }
 
-// @public (undocumented)
+// @public
 export const WebPubSubJsonProtocol: () => WebPubSubClientProtocol;
 
-// @public (undocumented)
-export const webPubSubJsonReliableProtocol: () => WebPubSubClientProtocol;
+// @public
+export const WebPubSubJsonReliableProtocol: () => WebPubSubClientProtocol;
 
-// @public (undocumented)
+// @public
 export type WebPubSubMessage = GroupDataMessage | ServerDataMessage | JoinGroupMessage | LeaveGroupMessage | ConnectedMessage | DisconnectedMessage | SendToGroupMessage | SendEventMessage | SequenceAckMessage | AckMessage;
 
 // @public
 export interface WebPubSubMessageBase {
     // (undocumented)
     kind: DownstreamMessageType | UpstreamMessageType;
+}
+
+// @public
+export interface WebPubSubResult {
+    ackId: number;
 }
 
 // (No @packageDocumentation comment for this package)
