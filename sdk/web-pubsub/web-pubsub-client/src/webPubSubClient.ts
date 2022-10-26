@@ -155,19 +155,69 @@ export class WebPubSubClient {
     }
   }
 
+  /**
+   * Add handler for connected event
+   * @param event The event name
+   * @param listener The handler
+   */
   public on(event: "connected", listener: (e: OnConnectedArgs) => void): void;
+  /**
+   * Add handler for disconnected event
+   * @param event The event name
+   * @param listener The handler
+   */
   public on(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
+  /**
+   * Add handler for stopped event
+   * @param event The event name
+   * @param listener The handler
+   */
   public on(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
+  /**
+   * Add handler for server messages
+   * @param event The event name
+   * @param listener The handler
+   */
   public on(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
+  /**
+   * Add handler for group messags
+   * @param event The event name
+   * @param listener The handler
+   */
   public on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
   public on(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message", listener: (e: any) => void): void {
     this._emitter.on(event, listener);
   }
 
+  /**
+   * Remove handler for connected event
+   * @param event The event name
+   * @param listener The handler
+   */
   public off(event: "connected", listener: (e: OnConnectedArgs) => void): void;
+  /**
+   * Remove handler for disconnected event
+   * @param event The event name
+   * @param listener The handler
+   */
   public off(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
+  /**
+   * Remove handler for stopped event
+   * @param event The event name
+   * @param listener The handler
+   */
   public off(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
+  /**
+   * Remove handler for server message
+   * @param event The event name
+   * @param listener The handler
+   */
   public off(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
+  /**
+   * Remove handler for group message
+   * @param event The event name
+   * @param listener The handler
+   */
   public off(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
   public off(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message", listener: (e: any) => void): void {
     this._emitter.removeListener(event, listener);
@@ -215,14 +265,38 @@ export class WebPubSubClient {
   /**
    * Join the client to group
    * @param groupName The group name
-   * @param ackId The optional ackId. If not specified, client will generate one. 
-   * @param abortSignal The abort signal
+   * @param options The join group options
    */
-  public async joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
-    let group = this.getOrAddGroup(groupName);
-    group.isJoined = true;
-    return await this.JoinGroupCore(groupName, options);
-  }
+   public async joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult>;
+   /**
+    * Join the client to group and add listener
+    * @param groupName The group name
+    * @param listener The handler to handle group messages
+    * @param options The join group options
+    */
+   public async joinGroup(groupName: string, listener: (e: OnGroupDataMessageArgs) => void, options?: JoinGroupOptions): Promise<WebPubSubResult>;
+   public async joinGroup(...args: [
+     groupName: string, options?: JoinGroupOptions
+   ] | [groupName: string, listener: (e: OnGroupDataMessageArgs) => void, options?: JoinGroupOptions]): Promise<WebPubSubResult> {
+      let [groupName, ...remains] = args;
+      let listener: ((e: OnGroupDataMessageArgs) => void) | undefined;
+      let options: JoinGroupOptions|undefined;
+      if (remains.length > 0) {
+        if (typeof remains[0] == "function") {
+          [listener, options] = remains;
+        } else {
+          [options] = remains;
+        }
+      }
+
+      let group = this.getOrAddGroup(groupName);
+      let result = await this.JoinGroupCore(groupName, options);
+      group.isJoined = true;
+      if (listener != null) {
+        group.on(listener);
+      }
+      return result;
+   }
 
 
   private async JoinGroupCore(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
@@ -245,17 +319,19 @@ export class WebPubSubClient {
    */
   public async leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult> {
     let group = this.getOrAddGroup(groupName);
-    group.isJoined = false;
-
+    
     options = options || {} as LeaveGroupOptions;
 
-    return await this.sendMessageWithAckId(id => {
+    let result = await this.sendMessageWithAckId(id => {
       return {
         group: groupName,
         ackId: id,
         kind: UpstreamMessageType.LeaveGroup
       } as LeaveGroupMessage;
     }, options.ackId, options.abortSignal);
+    group.isJoined = false;
+    group.clearListeners();
+    return result;
   }
 
   /**
@@ -652,8 +728,18 @@ enum WebPubSubClientState {
 }
 
 class WebPubSubGroup {
+  private readonly _emitter: EventEmitter = new EventEmitter(); 
+
   public readonly name: string;
   public isJoined = false;
+
+  public on(listener: (e: OnGroupDataMessageArgs) => void): void {
+    this._emitter.on("group-message", listener);
+  }
+
+  public clearListeners(): void {
+    this._emitter.removeAllListeners("group-message");
+  }
 
   constructor(name: string) {
     this.name = name;

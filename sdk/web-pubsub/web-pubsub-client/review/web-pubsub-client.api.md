@@ -196,26 +196,17 @@ export class WebPubSubClient {
     constructor(clientAccessUri: string, options?: WebPubSubClientOptions);
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
     joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult>;
+    joinGroup(groupName: string, listener: (e: OnGroupDataMessageArgs) => void, options?: JoinGroupOptions): Promise<WebPubSubResult>;
     leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult>;
-    // (undocumented)
     off(event: "connected", listener: (e: OnConnectedArgs) => void): void;
-    // (undocumented)
     off(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
-    // (undocumented)
     off(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
-    // (undocumented)
     off(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
-    // (undocumented)
     off(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
-    // (undocumented)
     on(event: "connected", listener: (e: OnConnectedArgs) => void): void;
-    // (undocumented)
     on(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
-    // (undocumented)
     on(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
-    // (undocumented)
     on(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
-    // (undocumented)
     on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
     sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendEventOptions): Promise<void | WebPubSubResult>;
     sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendToGroupOptions): Promise<void | WebPubSubResult>;
