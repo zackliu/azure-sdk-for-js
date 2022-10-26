@@ -4,8 +4,12 @@ import { WebPubSubServiceClient } from "@azure/web-pubsub";
 const serviceClient = new WebPubSubServiceClient(process.env.WPS_CONNECTION_STRING!, "chat");
 
 async function main() {
+  let fetchClientAccessUrl = async() => {
+    return (await serviceClient.getClientAccessToken({roles: ["webpubsub.joinLeaveGroup", "webpubsub.sendToGroup"]})).url
+  }
+
   let client = new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => {
-    return (await serviceClient.getClientAccessToken({roles: ["webpubsub.joinLeaveGroup", "webpubsub.sendToGroup"]})).url;
+    return await fetchClientAccessUrl();
   }));
 
   client.on("connected", e => {
