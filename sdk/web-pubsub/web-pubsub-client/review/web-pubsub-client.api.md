@@ -7,7 +7,6 @@
 /// <reference types="node" />
 
 import { AbortSignalLike } from '@azure/abort-controller';
-import { CloseEvent } from 'ws';
 
 // @public
 export interface AckMessage extends WebPubSubMessageBase {
@@ -97,13 +96,13 @@ export interface LeaveGroupOptions {
 
 // @public
 export interface OnConnectedArgs {
+    connectionId: string;
     groupRestoreState: Map<string, Error | null>;
-    message: ConnectedMessage;
+    userId: string;
 }
 
 // @public
 export interface OnDisconnectedArgs {
-    event?: CloseEvent;
     message?: DisconnectedMessage;
 }
 

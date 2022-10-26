@@ -13,7 +13,7 @@ async function main() {
   }));
 
   client.on("connected", e => {
-    console.log(`Connection ${e.message.connectionId} is connected.`);
+    console.log(`Connection ${e.connectionId} is connected.`);
   });
 
   client.on("disconnected", e => {

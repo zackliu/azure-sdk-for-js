@@ -465,7 +465,8 @@ export class WebPubSubClient {
             } catch {}
             
             let arg: OnConnectedArgs = {
-              message: message, 
+              connectionId: message.connectionId,
+              userId: message.userId,
               groupRestoreState: restoreResult,
             };
             this._emitter.emit('connected', arg);
@@ -552,7 +553,7 @@ export class WebPubSubClient {
 
   private async handleConnectionCloseAndNoRecovery(): Promise<void> {
     this._state = WebPubSubClientState.Disconnected;
-    let arg: OnDisconnectedArgs = {message: this._lastDisconnectedMessage, event: this._lastCloseEvent};
+    let arg: OnDisconnectedArgs = {message: this._lastDisconnectedMessage};
     this._emitter.emit("disconnected", arg);
 
     // Auto reconnect or stop

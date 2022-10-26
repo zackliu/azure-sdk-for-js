@@ -2,9 +2,8 @@
 // Licensed under the MIT license.
 
 import { AbortSignalLike } from "@azure/abort-controller";
-import { CloseEvent } from "ws";
 import { WebPubSubClientProtocol } from "../protocols";
-import { ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage } from "./messages";
+import { DisconnectedMessage, GroupDataMessage, ServerDataMessage } from "./messages";
 
 /**
  * The client options
@@ -103,9 +102,13 @@ export interface SendEventOptions {
  */
 export interface OnConnectedArgs {
   /**
-   * The connected message
+   * The connection id
    */
-  message: ConnectedMessage;
+   connectionId: string;
+   /**
+    * The user id of the client connection
+    */
+   userId: string;
   /**
    * Groups that joined from client will be restore after reconnection. Groups that join or leave from server won't be taken into consideration.
    */
@@ -120,10 +123,6 @@ export interface OnDisconnectedArgs {
    * The disconnected message
    */
   message?: DisconnectedMessage;
-  /**
-   * The websocket close event
-   */
-  event?: CloseEvent;
 }
 
 /**
