@@ -20,6 +20,16 @@ export interface WebPubSubClientOptions {
 }
 
 /**
+ * The start options
+ */
+ export interface StartOptions {
+  /**
+   * The abort signal
+   */
+   abortSignal?: AbortSignalLike; 
+}
+
+/**
  * The reconnection related options
  */
 export interface ReconnectionOptions {
@@ -152,6 +162,16 @@ export interface OnGroupDataMessageArgs {
 }
 
 /**
+ * Parameter of RestoreGroupFailed callback
+ */
+ export interface OnRestoreGroupFailedArgs {
+  /**
+   * The group data message
+   */
+  message: GroupDataMessage;
+}
+
+/**
  * The ack result
  */
 export interface WebPubSubResult {
@@ -159,6 +179,16 @@ export interface WebPubSubResult {
    * The ack message from the service
    */
   ackId: number;
+}
+
+/**
+ * The start options
+ */
+ export interface GetClientAccessUrlOptions {
+  /**
+   * The abort signal
+   */
+   abortSignal?: AbortSignalLike; 
 }
 
 export * from "./messages"

@@ -5,7 +5,7 @@ import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import EventEmitter from "events";
 import WebSocket, { CloseEvent, MessageEvent } from "ws";
 import { SendMessageError } from "./errors";
-import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, ReconnectionOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions } from "./models";
+import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, ReconnectionOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions, OnRestoreGroupFailedArgs, StartOptions, GetClientAccessUrlOptions } from "./models";
 import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
 import { WebPubSubClientProtocol, WebPubSubJsonReliableProtocol } from "./protocols";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
@@ -91,7 +91,7 @@ export class WebPubSubClient {
    * Start to start to the service.
    * @param abortSignal The abort signal
    */
-  public async start(abortSignal?: AbortSignalLike) : Promise<void> {
+  public async start(options?: StartOptions) : Promise<void> {
     if (this._isStopping) {
       console.error("Can't start a client during stopping");
       return;
@@ -102,6 +102,11 @@ export class WebPubSubClient {
       return;
     }
     
+    let abortSignal: AbortSignalLike | undefined;
+    if (options) {
+      abortSignal = options.abortSignal;
+    }
+
     try {
       await this.startCore(abortSignal);
     } catch {
@@ -137,7 +142,7 @@ export class WebPubSubClient {
     this._reconnectionToken = undefined;
     this._uri = undefined;
 
-    this._uri = await this._credential.getClientAccessUrl(abortSignal);
+    this._uri = await this._credential.getClientAccessUrl({abortSignal: abortSignal} as GetClientAccessUrlOptions);
     await this.connectCore(this._uri);
   }
 
@@ -185,7 +190,13 @@ export class WebPubSubClient {
    * @param listener The handler
    */
   public on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
-  public on(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message", listener: (e: any) => void): void {
+  /**
+   * Add handler for restoring group failed
+   * @param event The event name
+   * @param listener  The handler
+   */
+  public on(event: "restore-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
+  public on(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "restore-group-failed", listener: (e: any) => void): void {
     this._emitter.on(event, listener);
   }
 
@@ -219,7 +230,13 @@ export class WebPubSubClient {
    * @param listener The handler
    */
   public off(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
-  public off(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message", listener: (e: any) => void): void {
+  /**
+   * Add handler for restoring group failed
+   * @param event The event name
+   * @param listener  The handler
+   */
+  public off(event: "restore-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
+  public off(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "restore-group-failed", listener: (e: any) => void): void {
     this._emitter.removeListener(event, listener);
   }
 
@@ -243,7 +260,7 @@ export class WebPubSubClient {
       if (!options.fireAndForget) {
         return await this.sendMessageWithAckId(id => {
           return {
-            kind: UpstreamMessageType.SendEvent,
+            kind: "sendEvent",
             dataType: dataType,
             data: content,
             ackId: id,
@@ -253,7 +270,7 @@ export class WebPubSubClient {
       };
 
       const message =  {
-        kind: UpstreamMessageType.SendEvent,
+        kind: "sendEvent",
         dataType: dataType,
         data: content,
         event: eventName
@@ -267,34 +284,10 @@ export class WebPubSubClient {
    * @param groupName The group name
    * @param options The join group options
    */
-   public async joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult>;
-   /**
-    * Join the client to group and add listener
-    * @param groupName The group name
-    * @param listener The handler to handle group messages
-    * @param options The join group options
-    */
-   public async joinGroup(groupName: string, listener: (e: OnGroupDataMessageArgs) => void, options?: JoinGroupOptions): Promise<WebPubSubResult>;
-   public async joinGroup(...args: [
-     groupName: string, options?: JoinGroupOptions
-   ] | [groupName: string, listener: (e: OnGroupDataMessageArgs) => void, options?: JoinGroupOptions]): Promise<WebPubSubResult> {
-      let [groupName, ...remains] = args;
-      let listener: ((e: OnGroupDataMessageArgs) => void) | undefined;
-      let options: JoinGroupOptions|undefined;
-      if (remains.length > 0) {
-        if (typeof remains[0] == "function") {
-          [listener, options] = remains;
-        } else {
-          [options] = remains;
-        }
-      }
-
+   public async joinGroup(groupName: string, options?: JoinGroupOptions) {
       let group = this.getOrAddGroup(groupName);
       let result = await this.JoinGroupCore(groupName, options);
       group.isJoined = true;
-      if (listener != null) {
-        group.on(listener);
-      }
       return result;
    }
 
@@ -306,7 +299,7 @@ export class WebPubSubClient {
       return {
         group: groupName,
         ackId: id,
-        kind: UpstreamMessageType.JoinGroup
+        kind: "joinGroup"
       } as JoinGroupMessage;
     }, options.ackId, options.abortSignal);
   }
@@ -326,11 +319,10 @@ export class WebPubSubClient {
       return {
         group: groupName,
         ackId: id,
-        kind: UpstreamMessageType.LeaveGroup
+        kind: "leaveGroup"
       } as LeaveGroupMessage;
     }, options.ackId, options.abortSignal);
     group.isJoined = false;
-    group.clearListeners();
     return result;
   }
 
@@ -355,7 +347,7 @@ export class WebPubSubClient {
       if (!options.fireAndForget) {
         return await this.sendMessageWithAckId(id => {
           return {
-            kind: UpstreamMessageType.SendToGroup,
+            kind: "sendToGroup",
             group: groupName,
             dataType: dataType,
             data: content,
@@ -366,7 +358,7 @@ export class WebPubSubClient {
       };
 
       const message =  {
-        kind: UpstreamMessageType.SendToGroup,
+        kind: "sendToGroup",
         group: groupName,
         dataType: dataType,
         data: content,
@@ -396,7 +388,7 @@ export class WebPubSubClient {
             let [isUpdated, seqId] = this._sequenceId.tryGetSequenceId();
             if (isUpdated) {
               const message: SequenceAckMessage = {
-                kind: UpstreamMessageType.SequenceAck,
+                kind: "sequenceAck",
                 sequenceId: seqId!
               }
               await this.sendMessage(message);
@@ -525,23 +517,23 @@ export class WebPubSubClient {
     
         let message = this._protocol.parseMessages(convertedData);
         switch (message.kind) {
-          case DownstreamMessageType.Ack: {
+          case "ack": {
             handleAck(message as AckMessage);
             break;
           }
-          case DownstreamMessageType.Connected: {
+          case "connected": {
             handleConnected(message as ConnectedMessage);
             break;
           }
-          case DownstreamMessageType.Disconnected: {
+          case "disconnected": {
             handleDisconnected(message as DisconnectedMessage);
             break;
           }
-          case DownstreamMessageType.GroupData: {
+          case "groupData": {
             handleGroupData(message as GroupDataMessage);
             break;
           }
-          case DownstreamMessageType.ServerData: {
+          case "serverData": {
             handleServerData(message as ServerDataMessage);
             break;
           }
@@ -729,18 +721,8 @@ enum WebPubSubClientState {
 }
 
 class WebPubSubGroup {
-  private readonly _emitter: EventEmitter = new EventEmitter(); 
-
   public readonly name: string;
   public isJoined = false;
-
-  public on(listener: (e: OnGroupDataMessageArgs) => void): void {
-    this._emitter.on("group-message", listener);
-  }
-
-  public clearListeners(): void {
-    this._emitter.removeAllListeners("group-message");
-  }
 
   constructor(name: string) {
     this.name = name;

@@ -19,54 +19,54 @@ export interface WebPubSubMessageBase {
 /**
  * Types for downstream messages
  */
-export enum DownstreamMessageType {
+export type DownstreamMessageType = 
   /**
    * Type for AckMessage
    */
-  Ack = 'ack',
+  'ack' | 
   /**
    * Type for ConnectedMessage
    */
-  Connected = 'connected',
+  'connected' |
   /**
    * Type for DisconnectedMessage
    */
-  Disconnected = 'disconnected',
+  'disconnected' |
   /**
    * Type for GroupDataMessage
    */
-  GroupData = 'groupData',
+  'groupData' |
   /**
    * Type for ServerDataMessage
    */
-  ServerData = 'serverData',
-}
+  'serverData';
+
 
 /**
  * Types for upstream messages
  */
-export enum UpstreamMessageType {
+export type UpstreamMessageType  =
   /**
    * Type for JoinGroupMessage
    */
-  JoinGroup = 'joinGroup',
+  'joinGroup' |
   /**
    * Type for LeaveGroupMessage
    */
-  LeaveGroup = 'leaveGroup',
+  'leaveGroup' |
   /**
    * Type for SendToGroupMessage
    */
-  SendToGroup = 'sendToGroup',
+  'sendToGroup' |
   /**
    * Type for SendEventMessage
    */
-  SendEvent = 'sendEvent',
+  'sendEvent' |
   /**
    * Type for SequenceAckMessage
    */
-  SequenceAck = 'sequenceAck',
-}
+  'sequenceAck';
+
 
 /**
  * The ack message
@@ -75,7 +75,7 @@ export interface AckMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: DownstreamMessageType.Ack;
+  readonly kind: "ack";
   /**
    * The correspending id
    */
@@ -111,7 +111,7 @@ export interface ConnectedMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: DownstreamMessageType.Connected;
+  readonly kind: "connected";
   /**
    * The connection id
    */
@@ -133,7 +133,7 @@ export interface DisconnectedMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: DownstreamMessageType.Disconnected;
+  readonly kind: "disconnected";
   /**
    * Reason of disconnection.
    */
@@ -147,7 +147,7 @@ export interface GroupDataMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: DownstreamMessageType.GroupData;
+  readonly kind: "groupData";
   /**
    * The data type
    */
@@ -177,7 +177,7 @@ export interface ServerDataMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: DownstreamMessageType.ServerData;
+  readonly kind: "serverData";
   /**
    * The data type
    */
@@ -199,7 +199,7 @@ export interface JoinGroupMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: UpstreamMessageType.JoinGroup;
+  readonly kind: "joinGroup";
   /**
    * The group to join
    */
@@ -217,7 +217,7 @@ export interface LeaveGroupMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: UpstreamMessageType.LeaveGroup;
+  readonly kind: "leaveGroup";
   /**
    * The group to leave
    */
@@ -235,7 +235,7 @@ export interface SendEventMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: UpstreamMessageType.SendEvent;
+  readonly kind: "sendEvent";
   /**
    * Optional ack id. If specified, an AckMessage with success or not will be returned with the same ackId
    */
@@ -261,7 +261,7 @@ export interface SendToGroupMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: UpstreamMessageType.SendToGroup;
+  readonly kind: "sendToGroup";
   /**
    * The group to send
    */
@@ -291,7 +291,7 @@ export interface SequenceAckMessage extends WebPubSubMessageBase {
   /**
    * Message type
    */
-  readonly kind: UpstreamMessageType.SequenceAck;
+  readonly kind: "sequenceAck";
   /**
    * The sequence id
    */
@@ -301,21 +301,20 @@ export interface SequenceAckMessage extends WebPubSubMessageBase {
 /**
  * The data type
  */
-export enum WebPubSubDataType {
+export type WebPubSubDataType =
   /**
    * Binary type
    */
-  Binary = 'binary',
+  'binary' |
   /**
    * Json type
    */
-  Json = 'json',
+  'json' |
   /**
    * Text type
    */
-  Text = 'text',
+  'text' |
   /**
    * Protobuf type
    */
-  Protobuf = 'protobuf',
-}
+  'protobuf';

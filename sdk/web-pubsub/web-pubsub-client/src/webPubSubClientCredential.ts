@@ -2,11 +2,12 @@
 // Licensed under the MIT license.
 
 import { AbortSignalLike } from "@azure/abort-controller";
+import { GetClientAccessUrlOptions } from "./models";
 
 /**
  * Type to be used to get clientAccessUri
  */
-export type ClientAccessUriProvider = (abortSignal?: AbortSignalLike) => Promise<string>
+export type ClientAccessUriProvider = (options?: GetClientAccessUrlOptions) => Promise<string>
 
 /**
  * The WebPubSubClient credential
@@ -17,7 +18,7 @@ export interface WebPubSubClientCredential {
      * Gets an `getClientAccessUrl` which is used in connecting to the service
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
-    getClientAccessUrl(abortSignal?: AbortSignalLike): Promise<string>;
+    getClientAccessUrl(options?: GetClientAccessUrlOptions): Promise<string>;
 }
 
 /**
@@ -48,8 +49,8 @@ export class DefaultWebPubSubClientCredential implements WebPubSubClientCredenti
      * Gets an `getClientAccessUrl` which is used in connecting to the service
      * @param abortSignal - An implementation of `AbortSignalLike` to cancel the operation.
      */
-    public async getClientAccessUrl(abortSignal?: AbortSignalLike): Promise<string> {
-      const token = await this._clientAccessUriProvider(abortSignal);
+    public async getClientAccessUrl(options?: GetClientAccessUrlOptions): Promise<string> {
+      const token = await this._clientAccessUriProvider(options);
       return token;
     }
 }
