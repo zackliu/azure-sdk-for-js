@@ -1,4 +1,4 @@
-import {WebPubSubClient, DefaultWebPubSubClientCredential, WebPubSubDataType, SendToGroupOptions} from "@azure/web-pubsub-client"
+import {WebPubSubClient, DefaultWebPubSubClientCredential, SendToGroupOptions} from "@azure/web-pubsub-client"
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 
 const serviceClient = new WebPubSubServiceClient(process.env.WPS_CONNECTION_STRING!, "chat");
@@ -39,11 +39,11 @@ async function main() {
   await client.start();
 
   await client.joinGroup("testGroup");
-  await client.sendToGroup("testGroup", "hello world", WebPubSubDataType.Text, {fireAndForget: true} as SendToGroupOptions);
-  await client.sendToGroup("testGroup", {a: 12, b: "hello"}, WebPubSubDataType.Json);
-  await client.sendToGroup("testGroup", "hello json", WebPubSubDataType.Json);
+  await client.sendToGroup("testGroup", "hello world", "text", {fireAndForget: true} as SendToGroupOptions);
+  await client.sendToGroup("testGroup", {a: 12, b: "hello"}, "json");
+  await client.sendToGroup("testGroup", "hello json", "json");
   var buf = Buffer.from('aGVsbG9w', 'base64');
-  await client.sendToGroup("testGroup", buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), WebPubSubDataType.Binary);
+  await client.sendToGroup("testGroup", buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), "binary");
   console.log("Sent message");
   await delay(100000);
 }

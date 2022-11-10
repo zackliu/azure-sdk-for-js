@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-import { AckMessage, ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, JoinGroupMessage, LeaveGroupMessage, SendEventMessage, SendToGroupMessage, SequenceAckMessage, ServerDataMessage, UpstreamMessageType, WebPubSubDataType, WebPubSubMessage } from "../models/messages";
+import { AckMessage, ConnectedMessage, DisconnectedMessage, GroupDataMessage, JoinGroupMessage, LeaveGroupMessage, SendEventMessage, SendToGroupMessage, SequenceAckMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage } from "../models/messages";
 import { JSONTypes } from "../webPubSubClient";
 
 export function parseMessages(input: string): WebPubSubMessage {
@@ -20,27 +20,27 @@ export function parseMessages(input: string): WebPubSubMessage {
 
   if (typedMessage.type == "system") {
     if (typedMessage.event == "connected") {
-      returnMessage = {...parsedMessage, kind: DownstreamMessageType.Connected} as ConnectedMessage;
+      returnMessage = {...parsedMessage, kind: "connected"} as ConnectedMessage;
     } else if (typedMessage.event == "disconnected") {
-      returnMessage = {...parsedMessage, kind:DownstreamMessageType.Disconnected} as DisconnectedMessage;
+      returnMessage = {...parsedMessage, kind: "disconnected"} as DisconnectedMessage;
     } else {
       throw new Error();
     }
   } else if (typedMessage.type == "message") {
     if (typedMessage.from == "group") {
       let data = parsePayload(parsedMessage.data, parsedMessage.dataType as WebPubSubDataType);
-      returnMessage = {...parsedMessage, data: data, kind:DownstreamMessageType.GroupData
+      returnMessage = {...parsedMessage, data: data, kind: "groupData"
       } as GroupDataMessage;
     } else if (typedMessage.from == "server") {
       let data = parsePayload(parsedMessage.data, parsedMessage.dataType as WebPubSubDataType);
       returnMessage = {
-        ...parsedMessage, data: data, kind:DownstreamMessageType.ServerData
+        ...parsedMessage, data: data, kind: "serverData"
       } as ServerDataMessage;
     } else {
       throw new Error();
     }
   } else if (typedMessage.type == "ack") {
-    returnMessage = {...parsedMessage, kind:DownstreamMessageType.Ack} as AckMessage;
+    returnMessage = {...parsedMessage, kind: "ack"} as AckMessage;
   } else {
     throw new Error();
   }
@@ -50,23 +50,23 @@ export function parseMessages(input: string): WebPubSubMessage {
 export function writeMessage(message: WebPubSubMessage): string {
   let data: any;
   switch (message.kind) {
-    case UpstreamMessageType.JoinGroup: {
+    case "joinGroup": {
       data = new JoinGroupData(message);
       break;
     }
-    case UpstreamMessageType.LeaveGroup: {
+    case "leaveGroup": {
       data = new LeaveGroupData(message);
       break;
     }
-    case UpstreamMessageType.SendEvent: {
+    case "sendEvent": {
       data = new SendEventData(message);
       break;
     }
-    case UpstreamMessageType.SendToGroup: {
+    case "sendToGroup": {
       data = new SendToGroupData(message);
       break;
     }
-    case UpstreamMessageType.SequenceAck: {
+    case "sequenceAck": {
       data = new SequenceAckData(message);
       break;
     }
@@ -143,17 +143,17 @@ class SequenceAckData {
 
 function getPayload(data: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType): any {
   switch(dataType) {
-    case WebPubSubDataType.Text: {
+    case "text": {
       if (typeof data !== "string") {
         throw new TypeError("Message must be a string.");
       }
       return data
     }
-    case WebPubSubDataType.Json: {
+    case "json": {
       return JSON.stringify(data)
     }
-    case WebPubSubDataType.Binary:
-    case WebPubSubDataType.Protobuf: {
+    case "binary":
+    case "protobuf": {
       if (data instanceof ArrayBuffer) {
         return Buffer.from(data).toString('base64')
       }

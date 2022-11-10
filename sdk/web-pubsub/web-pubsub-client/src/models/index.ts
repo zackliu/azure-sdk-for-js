@@ -12,21 +12,61 @@ export interface WebPubSubClientOptions {
   /**
    * The subprotocol
    */
-  protocol: WebPubSubClientProtocol;
+  protocol?: WebPubSubClientProtocol;
   /**
-   * The reconnection related options
+   * Whether to auto reconnect after connection is dropped and not recoverable
    */
-  reconnectionOptions: ReconnectionOptions;  
+  autoReconnect?: boolean;
+  /**
+   * Whether to enable restoring group after reconnecting
+   */
+  autoRestoreGroups?: boolean;
+  /**
+   * The retry options for operations like joining group and sending messages
+   */
+  messageRetryOptions?: WebPubSubRetryOptions;
 }
+
+/**
+ * The retry options
+ */
+export interface WebPubSubRetryOptions {
+  /**
+   * Number of times the operation needs to be retried in case
+   * of retryable error. Default: 3.
+   */
+  maxRetries?: number;
+  /**
+  * Amount of time to wait in milliseconds before making the
+  * next attempt. Default: `1000 milliseconds`.
+  * When `mode` option is set to `Exponential`,
+  * this is used to compute the exponentially increasing delays between retries.
+  */
+  retryDelayInMs?: number;
+  /**
+  * Denotes the maximum delay between retries
+  * that the retry attempts will be capped at. Applicable only when performing exponential retry.
+  */
+  maxRetryDelayInMs?: number;
+  /**
+  * Denotes which retry mode to apply. If undefined, defaults to `Fixed`
+  */
+  mode?: RetryMode;
+}
+
+/**
+ * Describes the Retry Mode type
+ */
+export type RetryMode = "Exponential" | "Fixed";
 
 /**
  * The start options
  */
- export interface StartOptions {
+export interface StartOptions {
   /**
    * The abort signal
    */
-   abortSignal?: AbortSignalLike; 
+  abortSignal?: AbortSignalLike; 
 }
 
 /**

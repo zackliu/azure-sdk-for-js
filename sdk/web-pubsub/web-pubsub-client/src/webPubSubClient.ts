@@ -4,9 +4,9 @@
 import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import EventEmitter from "events";
 import WebSocket, { CloseEvent, MessageEvent } from "ws";
-import { SendMessageError } from "./errors";
-import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, ReconnectionOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions, OnRestoreGroupFailedArgs, StartOptions, GetClientAccessUrlOptions } from "./models";
-import { ConnectedMessage, DisconnectedMessage, DownstreamMessageType, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, UpstreamMessageType, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
+import { SendMessageError, SendMessageErrorOptions } from "./errors";
+import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, WebPubSubRetryOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions, OnRestoreGroupFailedArgs, StartOptions, GetClientAccessUrlOptions } from "./models";
+import { ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
 import { WebPubSubClientProtocol, WebPubSubJsonReliableProtocol } from "./protocols";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
 
@@ -65,20 +65,13 @@ export class WebPubSubClient {
       this._credential = credential;
     }
 
-    let defaultOptions = this.buildDefaultOptions();
-    if (!options) {
-      this._options = defaultOptions;
-    } else {
-      this._options = options;
-      if (!this._options.protocol) {
-        this._options.protocol = defaultOptions.protocol;
-      }
-      if (!this._options.reconnectionOptions) {
-        this._options.reconnectionOptions = defaultOptions.reconnectionOptions;
-      }
+    if (options == null) {
+      options = {};
     }
+    this.buildDefaultOptions(options);
+    this._options = options;
 
-    this._protocol = this._options.protocol;
+    this._protocol = this._options.protocol!;
     this._groupMap = new Map<string, WebPubSubGroup>();
     this._ackMap = new Map<number, AckEntity>();
     this._sequenceId = new SequenceId();
@@ -109,14 +102,15 @@ export class WebPubSubClient {
 
     try {
       await this.startCore(abortSignal);
-    } catch {
+    } catch (err) {
       // this two sentense should be set together. Consider client.stop() is called during startCore()
-      this._state = WebPubSubClientState.Stopped;
+      this.ChangeState(WebPubSubClientState.Stopped);
       this._isStopping = false;
+      throw err;
     }
   }
 
-  private async startInternal(abortSignal?: AbortSignalLike): Promise<void> {
+  private async startFromRestarting(abortSignal?: AbortSignalLike): Promise<void> {
     if (this._state != WebPubSubClientState.Disconnected) {
       console.warn("Client can be only restarted when it's Disconnected");
       return;
@@ -124,13 +118,14 @@ export class WebPubSubClient {
 
     try {
       await this.startCore(abortSignal);
-    } catch {
-      this._state = WebPubSubClientState.Disconnected;
+    } catch (err) {
+      this.ChangeState(WebPubSubClientState.Disconnected);      
+      throw err;
     }
   }
 
   private async startCore(abortSignal?: AbortSignalLike): Promise<void> {
-    this._state = WebPubSubClientState.Connecting;
+    this.ChangeState(WebPubSubClientState.Connecting);      
 
     console.info("Staring a new connection");
     // Reset before a pure new connection
@@ -279,6 +274,36 @@ export class WebPubSubClient {
       return await this.sendMessage(message, options.abortSignal);
   }
 
+  private async sendEventAttempt(eventName: string,
+    content: JSONTypes | ArrayBuffer,
+    dataType: WebPubSubDataType,
+    options?: SendEventOptions): Promise<void|WebPubSubResult> {
+     if (options == null) {
+       options = {fireAndForget: false};
+     }
+
+     if (!options.fireAndForget) {
+       return await this.sendMessageWithAckId(id => {
+         return {
+           kind: "sendEvent",
+           dataType: dataType,
+           data: content,
+           ackId: id,
+           event: eventName
+         } as SendEventMessage;
+       }, options.ackId, options.abortSignal); 
+     };
+
+     const message =  {
+       kind: "sendEvent",
+       dataType: dataType,
+       data: content,
+       event: eventName
+     } as SendEventMessage
+
+     return await this.sendMessage(message, options.abortSignal);
+ }
+
   /**
    * Join the client to group
    * @param groupName The group name
@@ -375,7 +400,10 @@ export class WebPubSubClient {
       socket.onopen = _ => {
         // There's a case that client called stop() before this method. We need to check and close it if it's the case.
         if (this._isStopping) {
-          socket.close();
+          try {
+            socket.close();
+          } catch {}
+
           reject();
         }
         this._socket = socket;
@@ -425,7 +453,7 @@ export class WebPubSubClient {
             if (message.success || (message.error && message.error.name == "Duplicate")) {
               entity.resolve({ackId: message.ackId});
             } else {
-              entity.reject(new SendMessageError("Failed to send message.", message.ackId, message.error));
+              entity.reject(new SendMessageError("Failed to send message.", {ackId: message.ackId, errorDetail: message.error} as SendMessageErrorOptions));
             }
           }
         };
@@ -561,7 +589,7 @@ export class WebPubSubClient {
     try {
       while (!this._isStopping) {
         try {
-          await this.startInternal();
+          await this.startFromRestarting();
           isSuccess = true;
           break;
         } catch {
@@ -617,7 +645,7 @@ export class WebPubSubClient {
     // Clean ack cache
     this._ackMap.forEach((value, key) => {
       if (this._ackMap.delete(key)) {
-        value.reject(new SendMessageError("Connection is disconnected before receive ack from the service", value.ackId));
+        value.reject(new SendMessageError("Connection is disconnected before receive ack from the service", {ackId: value.ackId} as SendMessageErrorOptions ));
       }
     });
 
@@ -669,12 +697,43 @@ export class WebPubSubClient {
     }
   }
 
-  private buildDefaultOptions(): WebPubSubClientOptions {
-    return <WebPubSubClientOptions> {
-      protocol: WebPubSubJsonReliableProtocol(),
-      reconnectionOptions: <ReconnectionOptions> {
-        autoReconnect: true,
-      }
+  private buildDefaultOptions(clientOptions: WebPubSubClientOptions): WebPubSubClientOptions {
+    if (clientOptions.autoReconnect == null) {
+      clientOptions.autoReconnect = true;
+    }
+
+    if (clientOptions.autoRestoreGroups == null) {
+      clientOptions.autoRestoreGroups = true;
+    }
+
+    if (clientOptions.protocol == null) {
+      clientOptions.protocol = WebPubSubJsonReliableProtocol();
+    }
+
+    this.buildMessageRetryOptions(clientOptions);
+
+    return clientOptions;
+  }
+
+  private buildMessageRetryOptions(clientOptions: WebPubSubClientOptions): void {
+    if (!clientOptions.messageRetryOptions) {
+      clientOptions.messageRetryOptions = {};
+    }
+
+    if (clientOptions.messageRetryOptions.maxRetries == null || clientOptions.messageRetryOptions.maxRetries < 0) {
+      clientOptions.messageRetryOptions.maxRetries = 3;
+    }
+
+    if (clientOptions.messageRetryOptions.retryDelayInMs == null || clientOptions.messageRetryOptions.retryDelayInMs < 0) {
+      clientOptions.messageRetryOptions.retryDelayInMs = 1000;
+    }
+
+    if (clientOptions.messageRetryOptions.maxRetryDelayInMs == null || clientOptions.messageRetryOptions.maxRetryDelayInMs < 0) {
+      clientOptions.messageRetryOptions.maxRetryDelayInMs = 30000;
+    }
+
+    if (clientOptions.messageRetryOptions.mode == null) {
+      clientOptions.messageRetryOptions.mode = "Fixed";
     }
   }
 
@@ -693,6 +752,15 @@ export class WebPubSubClient {
       this._groupMap.set(name, new WebPubSubGroup(name));
     }
     return this._groupMap.get(name) as WebPubSubGroup; 
+  }
+
+  private ChangeState(newState: WebPubSubClientState): void {
+    console.debug(`The client state transfer from ${this._state.toString()} to ${newState.toString()}`);
+    this._state = newState;
+  }
+
+  private async OperationExecuteWithRetry<T>(inner: Promise<T>): Promise<T> {
+    
   }
 }
 
@@ -713,11 +781,11 @@ function sendAsync(socket: WebSocket, data: any, _?: AbortSignalLike): Promise<v
 }
 
 enum WebPubSubClientState {
-  Stopped = 0,
-  Disconnected = 1,
-  Connecting = 2,
-  Connected = 3,
-  Recovering = 4,
+  Stopped = "Stopped",
+  Disconnected = "Disconnected",
+  Connecting = "Connecting",
+  Connected = "Connected",
+  Recovering = "Recovering",
 }
 
 class WebPubSubGroup {
