@@ -5,7 +5,7 @@ import { AbortController, AbortSignalLike } from "@azure/abort-controller";
 import EventEmitter from "events";
 import WebSocket, { CloseEvent, MessageEvent } from "ws";
 import { SendMessageError, SendMessageErrorOptions } from "./errors";
-import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, WebPubSubRetryOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions, OnRestoreGroupFailedArgs, StartOptions, GetClientAccessUrlOptions } from "./models";
+import { WebPubSubResult, JoinGroupOptions, LeaveGroupOptions, OnConnectedArgs, OnDisconnectedArgs, OnGroupDataMessageArgs, OnServerDataMessageArgs, OnStoppedArgs, WebPubSubRetryOptions, SendEventOptions, SendToGroupOptions, WebPubSubClientOptions, OnRestoreGroupFailedArgs as OnRejoinGroupFailedArgs, StartOptions, GetClientAccessUrlOptions } from "./models";
 import { ConnectedMessage, DisconnectedMessage, GroupDataMessage, ServerDataMessage, WebPubSubDataType, WebPubSubMessage, JoinGroupMessage, LeaveGroupMessage, SendToGroupMessage, SendEventMessage, AckMessage, SequenceAckMessage} from "./models/messages";
 import { WebPubSubClientProtocol, WebPubSubJsonReliableProtocol } from "./protocols";
 import { DefaultWebPubSubClientCredential, WebPubSubClientCredential } from "./webPubSubClientCredential";
@@ -25,6 +25,8 @@ export class WebPubSubClient {
   private readonly _groupMap: Map<string, WebPubSubGroup>;
   private readonly _ackMap: Map<number, AckEntity>;
   private readonly _sequenceId: SequenceId;
+  private readonly _messageRetryPolicy: RetryPolicy;
+  private readonly _reconnectRetryPolicy: RetryPolicy;
 
   private readonly _emitter: EventEmitter = new EventEmitter();
   private _state: WebPubSubClientState;
@@ -70,6 +72,12 @@ export class WebPubSubClient {
     }
     this.buildDefaultOptions(options);
     this._options = options;
+
+    this._messageRetryPolicy = new RetryPolicy(this._options.messageRetryOptions!);
+
+    // Expose to ClientOptions later
+    let connectRetryOptions: WebPubSubRetryOptions = {maxRetries: Number.MAX_VALUE, retryDelayInMs: 1000, mode: "Fixed"};
+    this._reconnectRetryPolicy = new RetryPolicy(connectRetryOptions);
 
     this._protocol = this._options.protocol!;
     this._groupMap = new Map<string, WebPubSubGroup>();
@@ -186,12 +194,12 @@ export class WebPubSubClient {
    */
   public on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
   /**
-   * Add handler for restoring group failed
+   * Add handler for rejoining group failed
    * @param event The event name
    * @param listener  The handler
    */
-  public on(event: "restore-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
-  public on(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "restore-group-failed", listener: (e: any) => void): void {
+  public on(event: "rejoin-group-failed", listener: (e: OnRejoinGroupFailedArgs) => void): void;
+  public on(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "rejoin-group-failed", listener: (e: any) => void): void {
     this._emitter.on(event, listener);
   }
 
@@ -226,13 +234,24 @@ export class WebPubSubClient {
    */
   public off(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
   /**
-   * Add handler for restoring group failed
+   * Remove handler for rejoining group failed
    * @param event The event name
    * @param listener  The handler
    */
-  public off(event: "restore-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
-  public off(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "restore-group-failed", listener: (e: any) => void): void {
+  public off(event: "rejoin-group-failed", listener: (e: OnRejoinGroupFailedArgs) => void): void;
+  public off(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "rejoin-group-failed", listener: (e: any) => void): void {
     this._emitter.removeListener(event, listener);
+  }
+
+  private emitEvent(event: "connected", args: OnConnectedArgs): void;
+  private emitEvent(event: "disconnected", args: OnDisconnectedArgs): void;
+  private emitEvent(event: "stopped", args: OnStoppedArgs): void;
+  private emitEvent(event: "server-message", args: OnServerDataMessageArgs): void;
+  private emitEvent(event: "group-message", args: OnGroupDataMessageArgs): void;
+  private emitEvent(event: "rejoin-group-failed", args: OnRejoinGroupFailedArgs): void;
+  private emitEvent(event: "connected" | "disconnected" | "stopped" | "server-message" | "group-message" | "rejoin-group-failed", args: any): void
+  {
+    this._emitter.emit(event, args);
   }
 
   /**
@@ -247,12 +266,17 @@ export class WebPubSubClient {
   public async sendEvent(eventName: string,
      content: JSONTypes | ArrayBuffer,
      dataType: WebPubSubDataType,
-     options?: SendEventOptions): Promise<void|WebPubSubResult> {
-      if (options == null) {
-        options = {fireAndForget: false};
-      }
+     options?: SendEventOptions): Promise<WebPubSubResult> {
+      return await this.operationExecuteWithRetry(() => 
+      this.sendEventAttempt(eventName, content, dataType, options), options?.abortSignal);
+  }
 
-      if (!options.fireAndForget) {
+  private async sendEventAttempt(eventName: string,
+    content: JSONTypes | ArrayBuffer,
+    dataType: WebPubSubDataType,
+    options?: SendEventOptions): Promise<WebPubSubResult> {
+      let fireAndForget = options?.fireAndForget ?? false;
+      if (!fireAndForget) {
         return await this.sendMessageWithAckId(id => {
           return {
             kind: "sendEvent",
@@ -261,7 +285,7 @@ export class WebPubSubClient {
             ackId: id,
             event: eventName
           } as SendEventMessage;
-        }, options.ackId, options.abortSignal); 
+        }, options?.ackId, options?.abortSignal); 
       };
 
       const message =  {
@@ -271,37 +295,8 @@ export class WebPubSubClient {
         event: eventName
       } as SendEventMessage
 
-      return await this.sendMessage(message, options.abortSignal);
-  }
-
-  private async sendEventAttempt(eventName: string,
-    content: JSONTypes | ArrayBuffer,
-    dataType: WebPubSubDataType,
-    options?: SendEventOptions): Promise<void|WebPubSubResult> {
-     if (options == null) {
-       options = {fireAndForget: false};
-     }
-
-     if (!options.fireAndForget) {
-       return await this.sendMessageWithAckId(id => {
-         return {
-           kind: "sendEvent",
-           dataType: dataType,
-           data: content,
-           ackId: id,
-           event: eventName
-         } as SendEventMessage;
-       }, options.ackId, options.abortSignal); 
-     };
-
-     const message =  {
-       kind: "sendEvent",
-       dataType: dataType,
-       data: content,
-       event: eventName
-     } as SendEventMessage
-
-     return await this.sendMessage(message, options.abortSignal);
+      await this.sendMessage(message, options?.abortSignal);
+      return {} as WebPubSubResult;
  }
 
   /**
@@ -309,24 +304,25 @@ export class WebPubSubClient {
    * @param groupName The group name
    * @param options The join group options
    */
-   public async joinGroup(groupName: string, options?: JoinGroupOptions) {
-      let group = this.getOrAddGroup(groupName);
-      let result = await this.JoinGroupCore(groupName, options);
-      group.isJoined = true;
-      return result;
-   }
+  public async joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
+    return await this.operationExecuteWithRetry(() => this.joinGroupAttempt(groupName, options), options?.abortSignal);
+  }
 
+  private async joinGroupAttempt(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
+    let group = this.getOrAddGroup(groupName);
+    let result = await this.joinGroupCore(groupName, options);
+    group.isJoined = true;
+    return result;
+  }
 
-  private async JoinGroupCore(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
-    options = options || {} as JoinGroupOptions;
-
+  private async joinGroupCore(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult> {
     return await this.sendMessageWithAckId(id => {
       return {
         group: groupName,
         ackId: id,
         kind: "joinGroup"
       } as JoinGroupMessage;
-    }, options.ackId, options.abortSignal);
+    }, options?.ackId, options?.abortSignal);
   }
 
   /**
@@ -336,17 +332,18 @@ export class WebPubSubClient {
    * @param abortSignal The abort signal
    */
   public async leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult> {
-    let group = this.getOrAddGroup(groupName);
-    
-    options = options || {} as LeaveGroupOptions;
+    return await this.operationExecuteWithRetry(() => this.leaveGroupAttempt(groupName, options), options?.abortSignal);
+  }
 
+  public async leaveGroupAttempt(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult> {
+    let group = this.getOrAddGroup(groupName);
     let result = await this.sendMessageWithAckId(id => {
       return {
         group: groupName,
         ackId: id,
         kind: "leaveGroup"
       } as LeaveGroupMessage;
-    }, options.ackId, options.abortSignal);
+    }, options?.ackId, options?.abortSignal);
     group.isJoined = false;
     return result;
   }
@@ -363,13 +360,15 @@ export class WebPubSubClient {
   public async sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer,
     dataType: WebPubSubDataType,
     options?: SendToGroupOptions): Promise<void|WebPubSubResult> {
-      if (options == null) {
-        options = {fireAndForget: false, noEcho: false};
-      }
+      return await this.operationExecuteWithRetry(() => this.sendToGroupAttempt(groupName, content, dataType, options), options?.abortSignal);
+  }
 
-      let noEcho = options.noEcho;
-
-      if (!options.fireAndForget) {
+  public async sendToGroupAttempt(groupName: string, content: JSONTypes | ArrayBuffer,
+    dataType: WebPubSubDataType,
+    options?: SendToGroupOptions): Promise<WebPubSubResult> {
+      let fireAndForget = options?.fireAndForget ?? false;
+      let noEcho = options?.noEcho ?? false;
+      if (!fireAndForget) {
         return await this.sendMessageWithAckId(id => {
           return {
             kind: "sendToGroup",
@@ -379,7 +378,7 @@ export class WebPubSubClient {
             ackId: id,
             noEcho: noEcho,
           } as SendToGroupMessage;
-        }, options.ackId, options.abortSignal); 
+        }, options?.ackId, options?.abortSignal); 
       };
 
       const message =  {
@@ -390,13 +389,14 @@ export class WebPubSubClient {
         noEcho: noEcho,
       } as SendToGroupMessage
 
-      return await this.sendMessage(message, options.abortSignal);
+      await this.sendMessage(message, options?.abortSignal);
+      return {} as WebPubSubResult;
   }
 
   private connectCore(uri: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       let socket = new WebSocket(uri, this._protocol.name);
-
+      socket.binaryType = "arraybuffer";
       socket.onopen = _ => {
         // There's a case that client called stop() before this method. We need to check and close it if it's the case.
         if (this._isStopping) {
@@ -447,34 +447,32 @@ export class WebPubSubClient {
       }
 
       socket.onmessage = (event: MessageEvent) => {
-        const handleAck = (message: AckMessage): void => {
+        const handleAckMessage = (message: AckMessage): void => {
           if (this._ackMap.has(message.ackId)) {
             let entity = this._ackMap.get(message.ackId)!;
             if (message.success || (message.error && message.error.name == "Duplicate")) {
-              entity.resolve({ackId: message.ackId});
+              entity.resolve({ackId: message.ackId, isDuplicated: true} as WebPubSubResult);
             } else {
               entity.reject(new SendMessageError("Failed to send message.", {ackId: message.ackId, errorDetail: message.error} as SendMessageErrorOptions));
             }
           }
         };
 
-        const handleConnected = async (message: ConnectedMessage): Promise<void> => {
+        const handleConnectedMessage = async (message: ConnectedMessage): Promise<void> => {
           this._connectionId = message.connectionId;
           this._reconnectionToken = message.reconnectionToken;
       
           if (!this._isInitialConnected) {
             this._isInitialConnected = true;
             
-            let restoreResult: Map<string,Error|null> = new Map<string, Error|null>();
             let groupPromises: Promise<void>[] = [];
             this._groupMap.forEach(g => {
               if (g.isJoined) {
                 groupPromises.push((async() => {
                   try {
-                    await this.JoinGroupCore(g.name);
-                    restoreResult.set(g.name, null);
+                    await this.joinGroupCore(g.name);
                   } catch (err) {
-                    restoreResult.set(g.name, err as Error);
+                    this.emitEvent("rejoin-group-failed", {group: g.name, error: err} as OnRejoinGroupFailedArgs)
                   }
                 })());
               }
@@ -486,18 +484,17 @@ export class WebPubSubClient {
             
             let arg: OnConnectedArgs = {
               connectionId: message.connectionId,
-              userId: message.userId,
-              groupRestoreState: restoreResult,
+              userId: message.userId
             };
-            this._emitter.emit('connected', arg);
+            this.emitEvent('connected', arg);
           }
         };
 
-        const handleDisconnected = (message: DisconnectedMessage): void => {
+        const handleDisconnectedMessage = (message: DisconnectedMessage): void => {
           this._lastDisconnectedMessage = message;
         }
 
-        const handleGroupData = async (message: GroupDataMessage): Promise<void> => {
+        const handleGroupDataMessage = (message: GroupDataMessage): void => {
           if (message.sequenceId != null) {
             if (!this._sequenceId.tryUpdate(message.sequenceId))
             {
@@ -505,22 +502,13 @@ export class WebPubSubClient {
               return;
             }
           }
-          // if (this._groupMap.has(message.group)) {
-          //   let group = this._groupMap.get(message.group)
-          //   if (group?.callback != null) {
-          //     try {
-          //       await group.callback({message: message});
-          //     } catch {}
-          //   }
-          // }
-          
           let arg: OnGroupDataMessageArgs = {
             message: message, 
           };
-          this._emitter.emit('group-message', arg);
+          this.emitEvent('group-message', arg);
         }
 
-        const handleServerData = async (message: ServerDataMessage): Promise<void> => {
+        const handleServerDataMessage = (message: ServerDataMessage): void => {
           if (message.sequenceId != null) {
             if (!this._sequenceId.tryUpdate(message.sequenceId))
             {
@@ -532,7 +520,7 @@ export class WebPubSubClient {
           let arg: OnServerDataMessageArgs = {
             message: message, 
           };
-          this._emitter.emit('server-message', arg);
+          this.emitEvent('server-message', arg);
         }
 
         let data = event.data;
@@ -543,41 +531,44 @@ export class WebPubSubClient {
           convertedData = data;
         }
     
-        let message = this._protocol.parseMessages(convertedData);
-        switch (message.kind) {
-          case "ack": {
-            handleAck(message as AckMessage);
-            break;
+        try {
+          let message = this._protocol.parseMessages(convertedData);
+          switch (message.kind) {
+            case "ack": {
+              handleAckMessage(message as AckMessage);
+              break;
+            }
+            case "connected": {
+              handleConnectedMessage(message as ConnectedMessage);
+              break;
+            }
+            case "disconnected": {
+              handleDisconnectedMessage(message as DisconnectedMessage);
+              break;
+            }
+            case "groupData": {
+              handleGroupDataMessage(message as GroupDataMessage);
+              break;
+            }
+            case "serverData": {
+              handleServerDataMessage(message as ServerDataMessage);
+              break;
+            }
           }
-          case "connected": {
-            handleConnected(message as ConnectedMessage);
-            break;
-          }
-          case "disconnected": {
-            handleDisconnected(message as DisconnectedMessage);
-            break;
-          }
-          case "groupData": {
-            handleGroupData(message as GroupDataMessage);
-            break;
-          }
-          case "serverData": {
-            handleServerData(message as ServerDataMessage);
-            break;
-          }
+        } catch (err) {
+          console.warn("An error occurred while processing the message from service", err);
         }
       };
-      socket.binaryType = "arraybuffer";
     });
   }
 
   private async handleConnectionCloseAndNoRecovery(): Promise<void> {
     this._state = WebPubSubClientState.Disconnected;
-    let arg: OnDisconnectedArgs = {message: this._lastDisconnectedMessage};
-    this._emitter.emit("disconnected", arg);
+    let arg: OnDisconnectedArgs = {connectionId: this._connectionId, message: this._lastDisconnectedMessage};
+    this.emitEvent("disconnected", arg);
 
     // Auto reconnect or stop
-    if (this._options.reconnectionOptions.autoReconnect) {
+    if (this._options.autoReconnect) {
       await this.autoReconnect();
     } else {
       await this.handleConnectionStopped();
@@ -586,14 +577,26 @@ export class WebPubSubClient {
 
   private async autoReconnect(): Promise<void> {
     let isSuccess = false;
+    let attempt = 0;
     try {
       while (!this._isStopping) {
         try {
           await this.startFromRestarting();
           isSuccess = true;
           break;
-        } catch {
-          await delay(1000);
+        } catch (err) {
+          console.warn("An attempt to reconnect connection failed", err);
+
+          attempt++;
+          let delayInMs = this._reconnectRetryPolicy.nextRetryDelayInMs(attempt);
+
+          if (delayInMs == null) {
+            break;
+          }
+  
+          try {
+            await delay(delayInMs);
+          } catch {}
         }
       }
     } finally {
@@ -606,7 +609,7 @@ export class WebPubSubClient {
   private handleConnectionStopped(): void {
     this._isStopping = false;
     this._state = WebPubSubClientState.Stopped;
-    this._emitter.emit("stopped", {});
+    this.emitEvent("stopped", {});
   }
 
   private async sendMessage(message: WebPubSubMessage, abortSignal?: AbortSignalLike): Promise<void> {
@@ -635,7 +638,12 @@ export class WebPubSubClient {
       await this.sendMessage(message, abortSignal);
     } catch (error) {
       this._ackMap.delete(ackId);
-      throw error;
+
+      let errorMessage: string = "";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      throw new SendMessageError(errorMessage, {ackId: ackId});
     }
 
     return await entity.promise();
@@ -759,8 +767,58 @@ export class WebPubSubClient {
     this._state = newState;
   }
 
-  private async OperationExecuteWithRetry<T>(inner: Promise<T>): Promise<T> {
-    
+  private async operationExecuteWithRetry<T>(inner: () => Promise<T>, signal?: AbortSignalLike): Promise<T> {
+    let retryAttempt = 0;
+
+    while (true) {
+      try {
+        await inner.call(this);
+      } catch (err) {
+        retryAttempt++;
+        var delayInMs = this._messageRetryPolicy.nextRetryDelayInMs(retryAttempt);
+        if (delayInMs == null) {
+          throw err;
+        }
+
+        try {
+          await delay(delayInMs);
+        } catch {}
+
+        if (signal?.aborted) {
+          throw err;
+        }
+      }
+    }
+  }
+}
+
+class RetryPolicy {
+  private _retryOptions: WebPubSubRetryOptions;
+  private _maxRetriesToGetMaxDelay: number;
+
+  public constructor(retryOptions: WebPubSubRetryOptions) {
+    this._retryOptions = retryOptions;
+    this._maxRetriesToGetMaxDelay = Math.ceil(Math.log2(this._retryOptions.maxRetryDelayInMs!) - Math.log2(this._retryOptions.retryDelayInMs!) + 1)
+  }
+
+  public nextRetryDelayInMs(retryAttempt: number): number | null {
+    if (retryAttempt > this._retryOptions.maxRetries!) {
+      return null;
+    } else {
+      if (this._retryOptions.mode! == "Fixed") {
+        return this._retryOptions.retryDelayInMs!;
+      } else {
+        return this.calculateExponentialDelay(retryAttempt);
+      }
+    }
+  }
+
+  private calculateExponentialDelay(attempt: number): number {
+    if (attempt >= this._maxRetriesToGetMaxDelay) {
+      return this._retryOptions.maxRetryDelayInMs!;
+    } else {
+      return (1 << (attempt - 1)) * this._retryOptions.retryDelayInMs!;
+    }
   }
 }
 

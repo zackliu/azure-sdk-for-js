@@ -116,12 +116,12 @@ export interface LeaveGroupOptions {
 // @public
 export interface OnConnectedArgs {
     connectionId: string;
-    groupRestoreState: Map<string, Error | null>;
     userId: string;
 }
 
 // @public
 export interface OnDisconnectedArgs {
+    connectionId?: string;
     message?: DisconnectedMessage;
 }
 
@@ -132,7 +132,8 @@ export interface OnGroupDataMessageArgs {
 
 // @public
 export interface OnRestoreGroupFailedArgs {
-    message: GroupDataMessage;
+    error: Error;
+    group: string;
 }
 
 // @public
@@ -148,6 +149,9 @@ export interface OnStoppedArgs {
 export interface ReconnectionOptions {
     autoReconnect: boolean;
 }
+
+// @public
+export type RetryMode = "Exponential" | "Fixed";
 
 // @public
 export interface SendEventMessage extends WebPubSubMessageBase {
@@ -245,20 +249,24 @@ export class WebPubSubClient {
     constructor(credential: WebPubSubClientCredential, options?: WebPubSubClientOptions);
     joinGroup(groupName: string, options?: JoinGroupOptions): Promise<WebPubSubResult>;
     leaveGroup(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult>;
+    // (undocumented)
+    leaveGroupAttempt(groupName: string, options?: LeaveGroupOptions): Promise<WebPubSubResult>;
     off(event: "connected", listener: (e: OnConnectedArgs) => void): void;
     off(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
     off(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
     off(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
     off(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
-    off(event: "restore-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
+    off(event: "rejoin-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
     on(event: "connected", listener: (e: OnConnectedArgs) => void): void;
     on(event: "disconnected", listener: (e: OnDisconnectedArgs) => void): void;
     on(event: "stopped", listener: (e: OnStoppedArgs) => void): void;
     on(event: "server-message", listener: (e: OnServerDataMessageArgs) => void): void;
     on(event: "group-message", listener: (e: OnGroupDataMessageArgs) => void): void;
-    on(event: "restore-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
-    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendEventOptions): Promise<void | WebPubSubResult>;
+    on(event: "rejoin-group-failed", listener: (e: OnRestoreGroupFailedArgs) => void): void;
+    sendEvent(eventName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendEventOptions): Promise<WebPubSubResult>;
     sendToGroup(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendToGroupOptions): Promise<void | WebPubSubResult>;
+    // (undocumented)
+    sendToGroupAttempt(groupName: string, content: JSONTypes | ArrayBuffer, dataType: WebPubSubDataType, options?: SendToGroupOptions): Promise<WebPubSubResult>;
     start(options?: StartOptions): Promise<void>;
     stop(): void;
 }
@@ -270,8 +278,10 @@ export interface WebPubSubClientCredential {
 
 // @public
 export interface WebPubSubClientOptions {
-    protocol: WebPubSubClientProtocol;
-    reconnectionOptions: ReconnectionOptions;
+    autoReconnect?: boolean;
+    autoRestoreGroups?: boolean;
+    messageRetryOptions?: WebPubSubRetryOptions;
+    protocol?: WebPubSubClientProtocol;
 }
 
 // @public
@@ -319,6 +329,15 @@ export interface WebPubSubMessageBase {
 // @public
 export interface WebPubSubResult {
     ackId: number;
+    isDuplicated: boolean;
+}
+
+// @public
+export interface WebPubSubRetryOptions {
+    maxRetries?: number;
+    maxRetryDelayInMs?: number;
+    mode?: RetryMode;
+    retryDelayInMs?: number;
 }
 
 // (No @packageDocumentation comment for this package)

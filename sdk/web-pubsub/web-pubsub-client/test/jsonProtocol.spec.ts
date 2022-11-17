@@ -1,57 +1,25 @@
 import { assert } from "@azure/test-utils";
-import { ReconnectionOptions, WebPubSubClientOptions } from "../src/models";
-import { WebPubSubJsonProtocol } from "../src/protocols";
-import { WebPubSubClient } from "../src/webPubSubClient";
-import { DefaultWebPubSubClientCredential } from "../src/webPubSubClientCredential";
+import { JoinGroupMessage, LeaveGroupMessage } from "../src/models";
+import { WebPubSubJsonReliableProtocol } from "../src/protocols";
+
 
 describe("JsonProtocol", function() {
+  const protocol = WebPubSubJsonReliableProtocol(); 
+
   describe("WriteMessage upstream messages", () => {
-    it("write joinGroup", () => {
-      assert.doesNotThrow(() => {
-        new WebPubSubClient("wss://service.com");
-      });
-    });
+    const tests = [
+      {testName: "JoinGroup1", message: {kind: "joinGroup", group: "group"} as JoinGroupMessage, payload: {type: "joinGroup", group: "group"}},
+      {testName: "JoinGroup2", message: {kind: "joinGroup", group: "group", ackId: 44133} as JoinGroupMessage, payload: {type: "joinGroup", group: "group", ackId: 44133}},
+      {testName: "leaveGroup1", message: {kind: "leaveGroup", group: "group"} as LeaveGroupMessage, payload: {type: "leaveGroup", group: "group"}},
+      {testName: "leaveGroup2", message: {kind: "leaveGroup", group: "group", ackId: 12345} as LeaveGroupMessage, payload: {type: "leaveGroup", group: "group", ackId: 12345}},
+    ]
 
-    it("write leaveGroup", () => {
-      assert.doesNotThrow(() => {
-        new WebPubSubClient("wss://service.com");
-      });
-    });
-
-    it("write sendToGroup", () => {
-      assert.doesNotThrow(() => {
-        new WebPubSubClient("wss://service.com");
-      });
-    });
-
-    it("write sendEvent", () => {
-      assert.doesNotThrow(() => {
-        new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"));
-      });
-    });
-
-    it("write sequenceAck", () => {
-      assert.doesNotThrow(() => {
-        new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"), {protocol: WebPubSubJsonProtocol(), reconnectionOptions: {autoReconnect: false} as ReconnectionOptions} as WebPubSubClientOptions);
-      });
-    });
-
-    it("protocol is missing ", () => {
-      assert.doesNotThrow(() => {
-        let client = new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"), {reconnectionOptions: {autoReconnect: false} as ReconnectionOptions} as WebPubSubClientOptions);
-        let protocol = client['_protocol'];
-        assert.equal('json.reliable.webpubsub.azure.v1', protocol.name);
-        let options = client['_options'];
-        assert.isFalse(options.reconnectionOptions.autoReconnect);
-      });
-    });
-
-    it("reconnectionOptions is missing ", () => {
-      assert.doesNotThrow(() => {
-        let client = new WebPubSubClient(new DefaultWebPubSubClientCredential(async _ => "wss://service.com"), {} as WebPubSubClientOptions);
-        let options = client['_options'];
-        assert.isTrue(options.reconnectionOptions.autoReconnect);
-      });
+    tests.forEach(({testName, message, payload}) => {
+      it(`write message test ${testName}`, () => {
+        const serializedPayload = JSON.stringify(payload);
+        const writeMessage = protocol.writeMessage(message) as string;
+        assert.equal(serializedPayload, writeMessage);
+      })
     });
   });
 });

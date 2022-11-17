@@ -70,16 +70,6 @@ export interface StartOptions {
 }
 
 /**
- * The reconnection related options
- */
-export interface ReconnectionOptions {
-  /**
-   * Whether to auto reconnect after connection is dropped and not recoverable
-   */
-  autoReconnect: boolean;
-}
-
-/**
  * Join group operation options
  */
 export interface JoinGroupOptions {
@@ -136,7 +126,7 @@ export interface SendEventOptions {
   /**
    * If true, the message won't contains ackId. No AckMessage will be returned from the service.
    */
-  fireAndForget:boolean;
+  fireAndForget: boolean;
   /**
    * The optional ackId. If not specified, client will generate one. 
    */
@@ -159,16 +149,16 @@ export interface OnConnectedArgs {
     * The user id of the client connection
     */
    userId: string;
-  /**
-   * Groups that joined from client will be restore after reconnection. Groups that join or leave from server won't be taken into consideration.
-   */
-  groupRestoreState: Map<string, Error|null>;
 }
 
 /**
  * Parameter of OnDisconnected callback
  */
 export interface OnDisconnectedArgs {
+  /**
+   * The connection id
+   */
+  connectionId?: string;
   /**
    * The disconnected message
    */
@@ -206,9 +196,13 @@ export interface OnGroupDataMessageArgs {
  */
  export interface OnRestoreGroupFailedArgs {
   /**
-   * The group data message
+   * The group name
    */
-  message: GroupDataMessage;
+  group: string;
+  /**
+   * The failure error
+   */
+  error: Error;
 }
 
 /**
@@ -219,6 +213,10 @@ export interface WebPubSubResult {
    * The ack message from the service
    */
   ackId: number;
+  /**
+   * Whether the message is duplicated.
+   */
+  isDuplicated: boolean;
 }
 
 /**
